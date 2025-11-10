@@ -1,0 +1,16 @@
+[
+  {
+    "id": "CASE-1762659431747-G5IRBUGO4",
+    "timestamp": "2025-11-09T03:37:11.747Z",
+    "messages": [
+      {
+        "sender": "bot",
+        "text": "Hello! I'm your OCBC SmartFollowSystem assistant. How can I help you today?",
+        "timestamp": "2025-11-09T03:37:08.111Z"
+      }
+    ],
+    "status": "escalated",
+    "summary": "Manual escalation requested by user",
+    "escalatedAt": "2025-11-09T03:37:11.747Z"
+  }
+]
