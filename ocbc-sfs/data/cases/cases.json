@@ -12,5 +12,77 @@
     "status": "escalated",
     "summary": "Manual escalation requested by user",
     "escalatedAt": "2025-11-09T03:37:11.747Z"
+  },
+  {
+    "id": "CASE-1763108470142-IWR4UG9LA",
+    "timestamp": "2025-11-14T08:21:10.142Z",
+    "messages": [
+      {
+        "sender": "bot",
+        "text": "Hello! I'm your OCBC SmartFollowSystem assistant. How can I help you today?",
+        "timestamp": "2025-11-14T08:19:30.991Z"
+      },
+      {
+        "sender": "user",
+        "text": "I lost my bank card",
+        "timestamp": "2025-11-14T08:19:43.822Z"
+      },
+      {
+        "sender": "bot",
+        "text": "I'm so sorry to hear that you've lost your bank card.\n\nTo help us replace the card as soon as possible, please call our 24/7 Lost Card Hotline at 1800 363 3333. Our customer service team will be happy to guide you through the process and provide a replacement card.\n\nIn the meantime, I'd like to confirm some details with you:\n\n1. Can you please tell me your OCBC account number or the last four digits of your account number?\n2. Did you have any cash or transactions at the time of losing the card?\n3. Do you have any identification documents readily available (e.g., passport, driver's license)?\n\nPlease note that it's essential to report a lost or stolen card as soon as possible to prevent any unauthorized transactions.\n\nAlso, would you like me to provide some general tips on how to stay safe and secure while waiting for your replacement card?",
+        "timestamp": "2025-11-14T08:20:28.174Z"
+      }
+    ],
+    "status": "escalated",
+    "summary": "Manual escalation requested by user",
+    "escalatedAt": "2025-11-14T08:21:10.142Z"
+  },
+  {
+    "id": "CASE-1763340306654-234Y6P02T",
+    "timestamp": "2025-11-17T00:45:06.654Z",
+    "messages": [
+      {
+        "sender": "bot",
+        "text": "Hello! I'm your OCBC SmartFollowSystem assistant. How can I help you today?",
+        "timestamp": "2025-11-17T00:25:42.893Z"
+      },
+      {
+        "sender": "user",
+        "text": "i lost my bank card what should i do?",
+        "timestamp": "2025-11-17T00:32:22.039Z"
+      },
+      {
+        "sender": "bot",
+        "text": "I'm so sorry to hear that you've lost your bank card.\n\nTo minimize any potential losses, please report the lost card to us immediately. Here's a step-by-step guide:\n\n1. **Call our Lost Card Hotline**: Dial 1800 363 3333 (available 24/7) and let them know that you've lost your card.\n2. **Confirm your identity**: The hotline representative will ask for some verification details to ensure it's really you. Please have your OCBC account details ready.\n3. **Provide the hotline with the card details**: Share the card number, expiration date, and any other relevant information about the lost card.\n4. **Get a replacement card**: We'll guide you through the process of getting a new card issued. You can either:\n\t* Visit your nearest OCBC Branch during banking hours\n\t* Pick up a temporary card at an ATM (if available)\n\t* Receive a temporary card via mail\n5. **Update your account information**: Once you have your replacement card, please log in to your OCBC Online Banking or Mobile Banking app to update your card information.\n6. **Report any suspicious transactions**: If you've already made any purchases or withdrawals using the lost card, we'll help you report them and minimize any potential losses.\n\nPlease note that it's essential to act quickly to prevent any unauthorized transactions.\n\nIf you have any further questions or concerns, feel free to ask, and I'll be happy to assist you.\n\nAlso, would you like me to:\n\nA) Help you find your nearest OCBC Branch\nB) Provide more information about temporary cards and replacement processes\nC) Assist with reporting suspicious transactions\n\nPlease let me know how I can further support you.",
+        "timestamp": "2025-11-17T00:32:38.634Z"
+      }
+    ],
+    "status": "escalated",
+    "summary": "Manual escalation requested by user",
+    "escalatedAt": "2025-11-17T00:45:06.654Z"
+  },
+  {
+    "id": "CASE-1763351051051-OA266O6FM",
+    "timestamp": "2025-11-17T03:44:11.051Z",
+    "messages": [
+      {
+        "sender": "bot",
+        "text": "Hello! I'm your OCBC SmartFollowSystem assistant. How can I help you today?",
+        "timestamp": "2025-11-17T03:30:32.158Z"
+      },
+      {
+        "sender": "user",
+        "text": "I lost bank card",
+        "timestamp": "2025-11-17T03:43:01.248Z"
+      },
+      {
+        "sender": "bot",
+        "text": "Sorry to hear that you've lost your OCBC bank card.\n\nPlease report the loss or theft of your card immediately to prevent any further unauthorized transactions. You can do this by calling our 24/7 Lost Card Hotline at 1800 363 3333 (from Singapore) or +65 6363 3333 (from overseas).\n\nWhen you call, please have your card details ready, such as the card number and expiration date. Our team will guide you through the process of replacing your card.\n\nIn the meantime, please be aware that OCBC Bank may suspend any transactions on your account to protect you from potential unauthorized use.\n\nTo report a lost or stolen card, follow these steps:\n\n1. Call our Lost Card Hotline at 1800 363 3333 (or +65 6363 3333 if overseas)\n2. Let the representative know that you've lost your OCBC bank card\n3. Provide your card details to confirm your identity\n4. Follow the instructions provided by the representative to report the loss and arrange for a replacement card\n\nAdditionally, please note that:\n\n* If your card is stolen or used without your knowledge, please do not attempt to use it again.\n* You can also report any suspicious transactions on your account to our customer service team.\n\nIs there anything else I can help you with?",
+        "timestamp": "2025-11-17T03:43:17.148Z"
+      }
+    ],
+    "status": "escalated",
+    "summary": "Manual escalation requested by user",
+    "escalatedAt": "2025-11-17T03:44:11.051Z"
   }
 ]

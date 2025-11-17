@@ -218,10 +218,16 @@ export default function CaseDetailsPage() {
         {/* Actions */}
         <div className="mt-6 flex gap-4">
           <a
+            href="/admin"
+            className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-center text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+          >
+            Back to Admin Dashboard
+          </a>
+          <a
             href="/"
             className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-center text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
           >
-            Back to Chat
+            Go to Chat
           </a>
           <button
             onClick={() => window.print()}

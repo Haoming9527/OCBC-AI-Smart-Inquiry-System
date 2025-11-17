@@ -6,6 +6,7 @@ import ChatInput from './ChatInput';
 import EscalationQR from './EscalationQR';
 import BankingGuide from './BankingGuide';
 import SelfServiceLinks from './SelfServiceLinks';
+import ChatHistory from './ChatHistory';
 import { detectBankingQuery, BankingGuide as BankingGuideType, SelfServiceLink } from '../lib/banking-knowledge';
 
 export interface Message {
@@ -76,7 +77,59 @@ export default function ChatBot() {
   const [isTyping, setIsTyping] = useState(false);
   const [escalatedCaseId, setEscalatedCaseId] = useState<string | null>(null);
   const [showEscalation, setShowEscalation] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string>('');
+  const [showHistory, setShowHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Initialize user ID and session
+  useEffect(() => {
+    // Get or create user ID
+    let storedUserId = localStorage.getItem('chat_user_id');
+    if (!storedUserId) {
+      storedUserId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      localStorage.setItem('chat_user_id', storedUserId);
+    }
+    setUserId(storedUserId);
+
+    // Create new session
+    const createSession = async () => {
+      try {
+        const response = await fetch('/api/chat/history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: storedUserId }),
+        });
+        const data = await response.json();
+        if (data.session) {
+          setCurrentSessionId(data.session.id);
+          // Save initial bot message
+          await saveMessageToHistory(data.session.id, storedUserId!, 'bot', messages[0].text);
+        }
+      } catch (error) {
+        console.error('Error creating session:', error);
+      }
+    };
+    createSession();
+  }, []);
+
+  // Save message to history
+  const saveMessageToHistory = async (
+    sessionId: string,
+    userId: string,
+    sender: 'user' | 'bot',
+    text: string
+  ) => {
+    try {
+      await fetch('/api/chat/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, userId, sender, text }),
+      });
+    } catch (error) {
+      console.error('Error saving message:', error);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -98,6 +151,11 @@ export default function ChatBot() {
 
     setMessages((prev) => [...prev, userMessage]);
     setIsTyping(true);
+
+    // Save user message to history
+    if (currentSessionId && userId) {
+      await saveMessageToHistory(currentSessionId, userId, 'user', text.trim());
+    }
 
     try {
       // Call our API route which connects to Ollama
@@ -132,6 +190,11 @@ export default function ChatBot() {
       };
 
       setMessages((prev) => [...prev, botMessage]);
+
+      // Save bot message to history
+      if (currentSessionId && userId) {
+        await saveMessageToHistory(currentSessionId, userId, 'bot', botResponse);
+      }
 
       // Check if escalation is needed
       const needsEscalation = shouldEscalate(botResponse, text);
@@ -187,9 +250,55 @@ export default function ChatBot() {
 
   return (
     <div className="flex h-screen flex-col bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800">
+      {/* History Sidebar */}
+      {showHistory && (
+        <ChatHistory
+          userId={userId}
+          onClose={() => setShowHistory(false)}
+          onLoadSession={async (sessionId: string) => {
+            try {
+              const response = await fetch(`/api/chat/history?sessionId=${sessionId}&userId=${userId}`);
+              const data = await response.json();
+              if (data.session) {
+                setCurrentSessionId(sessionId);
+                setMessages(
+                  data.session.messages.map((msg: any) => ({
+                    id: msg.id.toString(),
+                    text: msg.text,
+                    sender: msg.sender,
+                    timestamp: new Date(msg.timestamp),
+                  }))
+                );
+                setShowHistory(false);
+              }
+            } catch (error) {
+              console.error('Error loading session:', error);
+            }
+          }}
+        />
+      )}
       {/* Header */}
       <div className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+            title="Chat History"
+          >
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </button>
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white">
             <svg
               className="h-6 w-6"

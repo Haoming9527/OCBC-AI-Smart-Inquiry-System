@@ -33,17 +33,33 @@ ollama pull phi3         # Very small, very fast
 ollama pull gemma2       # Google's model
 ```
 
-### Step 3: Configure Environment (Optional)
+### Step 3: Set Up Neon Database
 
-Create a `.env.local` file in the `ocbc-sfs` directory:
+This project uses **Neon DB** (serverless Postgres) for storing cases and messages.
+
+1. **Create a Neon account:**
+   - Go to [https://neon.tech](https://neon.tech)
+   - Sign up for a free account
+   - Create a new project
+
+2. **Get your connection string:**
+   - In the Neon dashboard, go to your project
+   - Click on "Connection Details"
+   - Copy the connection string (it looks like: `postgresql://username:password@hostname/database?sslmode=require`)
+
+3. **Configure Environment:**
+   Create a `.env.local` file in the `ocbc-sfs` directory:
 
 ```env
-# Ollama Configuration
+# Neon Database Connection (REQUIRED)
+DATABASE_URL=postgresql://username:password@hostname/database?sslmode=require
+
+# Ollama Configuration (Optional)
 OLLAMA_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.2
 ```
 
-If you don't create this file, it will use the defaults above.
+The database schema will be automatically created on first run.
 
 ## 🚀 Getting Started
 
@@ -67,7 +83,8 @@ If you don't create this file, it will use the defaults above.
 ## 📝 Features
 
 - ✅ Local AI model hosting (100% free, no API costs)
-- ✅ Complete privacy (data stays on your machine)
+- ✅ Neon DB integration for persistent case storage
+- ✅ Admin dashboard for case management
 - ✅ Modern chat interface
 - ✅ Dark mode support
 - ✅ Responsive design
@@ -86,6 +103,16 @@ If you don't create this file, it will use the defaults above.
 **Problem: Slow responses**
 - Try a smaller model like `llama3.2` or `phi3`
 - Make sure you have enough RAM (models need 4-8GB+)
+
+**Problem: "DATABASE_URL environment variable is not set"**
+- Make sure you've created a `.env.local` file
+- Add your Neon database connection string to the file
+- Restart your development server after adding the environment variable
+
+**Problem: Database connection errors**
+- Verify your Neon connection string is correct
+- Check that your Neon project is active
+- Ensure SSL mode is set to `require` in the connection string
 
 ## 📚 Learn More
 
