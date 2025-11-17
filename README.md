@@ -24,3 +24,7 @@
 🧾 3. QR Code Case Transfer System
 - The chatbot generates a unique QR code representing the customer’s case.
 - When bank staff scan the QR code, they can instantly view a summary of the customer’s issue, previous interactions, and key details.
+
+
+How the AI Works:
+Our software will send the request to Ollama, running llama 3.2 locally.
