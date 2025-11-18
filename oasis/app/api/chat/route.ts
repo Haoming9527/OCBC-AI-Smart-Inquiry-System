@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Banking system prompt with detailed descriptions
-    const bankingSystemPrompt = `You are an AI assistant for OCBC Bank's SmartFollowSystem. Your role is to help customers with banking enquiries in a friendly, professional, and helpful manner.
+    const bankingSystemPrompt = `You are an AI assistant for OCBC Bank's AI Smart Inquiry System (OASIS). Your role is to help customers with banking enquiries in a friendly, professional, and helpful manner.
 
 ABOUT OCBC BANK:
 - OCBC Bank is one of the largest and most established banks in Singapore

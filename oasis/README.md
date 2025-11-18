@@ -1,6 +1,6 @@
-# OCBC SmartFollowSystem - Chatbot Interface
+# OCBC AI Smart Inquiry System (OASIS) - Chatbot Interface
 
-This is the OCBC SmartFollowSystem chatbot interface built with Next.js and integrated with Ollama for local AI model hosting.
+This is the OCBC AI Smart Inquiry System (OASIS) chatbot interface built with Next.js and integrated with Ollama for local AI model hosting.
 
 ## 🤖 AI Model Setup (Ollama)
 
@@ -48,7 +48,7 @@ This project uses **Neon DB** (serverless Postgres) for storing cases and messag
    - Copy the connection string (it looks like: `postgresql://username:password@hostname/database?sslmode=require`)
 
 3. **Configure Environment:**
-   Create a `.env.local` file in the `ocbc-sfs` directory:
+   Create a `.env.local` file in the `oasis` directory:
 
 ```env
 # Neon Database Connection (REQUIRED)

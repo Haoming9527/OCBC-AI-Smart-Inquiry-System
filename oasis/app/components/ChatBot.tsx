@@ -69,7 +69,7 @@ export default function ChatBot() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: 'Hello! I\'m your OCBC SmartFollowSystem assistant. How can I help you today?',
+      text: 'Hello! I\'m your OCBC AI Smart Inquiry System (OASIS) assistant. How can I help you today?',
       sender: 'bot',
       timestamp: new Date(),
     },
@@ -316,7 +316,7 @@ export default function ChatBot() {
           </div>
           <div>
             <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-              OCBC SmartFollowSystem
+              OCBC AI Smart Inquiry System (OASIS)
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               AI Assistant

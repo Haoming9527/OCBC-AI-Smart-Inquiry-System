@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "OCBC SmartFollowSystem",
+  title: "OCBC AI Smart Inquiry System (OASIS)",
   description: "AI-powered customer enquiry assistant for OCBC",
 };
 
