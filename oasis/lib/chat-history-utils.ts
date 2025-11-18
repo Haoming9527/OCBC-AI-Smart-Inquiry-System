@@ -1,10 +1,12 @@
 import { sql } from './db';
+import { analyzeSentiment, SentimentAnalysis } from './sentiment-utils';
 
 export interface ChatMessage {
   id: number;
   sender: 'user' | 'bot';
   text: string;
   timestamp: string;
+  sentiment?: SentimentAnalysis;
 }
 
 export interface ChatSession {
@@ -66,10 +68,49 @@ export async function saveChatMessage(
   sender: 'user' | 'bot',
   text: string
 ): Promise<void> {
-  await sql`
-    INSERT INTO chat_messages (session_id, sender, text, timestamp)
-    VALUES (${sessionId}, ${sender}, ${text}, ${new Date().toISOString()})
+  // Analyze sentiment for user messages only
+  let sentiment: SentimentAnalysis | undefined;
+  if (sender === 'user') {
+    sentiment = analyzeSentiment(text);
+  }
+
+  // Check if all sentiment columns exist
+  const sentimentColumns = await sql`
+    SELECT column_name 
+    FROM information_schema.columns 
+    WHERE table_name = 'chat_messages' 
+      AND column_name IN ('sentiment_score', 'sentiment_comparative', 'sentiment_label', 'sentiment_magnitude')
   `;
+  
+  const hasAllSentimentColumns = sentimentColumns.length === 4;
+
+  if (hasAllSentimentColumns) {
+    // Insert with sentiment columns
+    await sql`
+      INSERT INTO chat_messages (session_id, sender, text, timestamp, sentiment_score, sentiment_comparative, sentiment_label, sentiment_magnitude)
+      VALUES (
+        ${sessionId}, 
+        ${sender}, 
+        ${text}, 
+        ${new Date().toISOString()},
+        ${sentiment?.score ?? null},
+        ${sentiment?.comparative ?? null},
+        ${sentiment?.label ?? null},
+        ${sentiment?.magnitude ?? null}
+      )
+    `;
+  } else {
+    // Fallback: insert without sentiment columns (for backwards compatibility)
+    await sql`
+      INSERT INTO chat_messages (session_id, sender, text, timestamp)
+      VALUES (
+        ${sessionId}, 
+        ${sender}, 
+        ${text}, 
+        ${new Date().toISOString()}
+      )
+    `;
+  }
 
   // Update session's last message preview and updated_at
   const preview = text.length > 100 ? text.substring(0, 100) + '...' : text;
@@ -137,12 +178,28 @@ export async function getSessionWithMessages(
   const session = sessionResult[0];
 
   // Get all messages for this session
-  const messagesResult = await sql`
-    SELECT id, sender, text, timestamp
-    FROM chat_messages
-    WHERE session_id = ${sessionId}
-    ORDER BY timestamp ASC
-  `;
+  // Try to select with sentiment columns, fallback if they don't exist
+  let messagesResult: any[];
+  try {
+    messagesResult = await sql`
+      SELECT id, sender, text, timestamp, sentiment_score, sentiment_comparative, sentiment_label, sentiment_magnitude
+      FROM chat_messages
+      WHERE session_id = ${sessionId}
+      ORDER BY timestamp ASC
+    `;
+  } catch (error: any) {
+    // If sentiment columns don't exist, select without them
+    if (error?.code === '42703') {
+      messagesResult = await sql`
+        SELECT id, sender, text, timestamp
+        FROM chat_messages
+        WHERE session_id = ${sessionId}
+        ORDER BY timestamp ASC
+      `;
+    } else {
+      throw error;
+    }
+  }
 
   return {
     id: session.id,
@@ -157,6 +214,12 @@ export async function getSessionWithMessages(
       sender: m.sender as 'user' | 'bot',
       text: m.text,
       timestamp: m.timestamp.toISOString(),
+      sentiment: m.sentiment_score !== null && m.sentiment_score !== undefined ? {
+        score: parseFloat(m.sentiment_score),
+        comparative: parseFloat(m.sentiment_comparative),
+        label: m.sentiment_label as 'positive' | 'neutral' | 'negative',
+        magnitude: m.sentiment_magnitude as 'low' | 'medium' | 'high',
+      } : undefined,
     })),
   };
 }

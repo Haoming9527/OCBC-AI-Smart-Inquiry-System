@@ -1,4 +1,5 @@
 import { sql } from './db';
+import { analyzeSentiment, SentimentAnalysis } from './sentiment-utils';
 
 export interface Case {
   id: string;
@@ -7,6 +8,7 @@ export interface Case {
     sender: 'user' | 'bot';
     text: string;
     timestamp: string;
+    sentiment?: SentimentAnalysis;
   }>;
   status: 'open' | 'resolved' | 'escalated';
   summary?: string;
@@ -37,7 +39,11 @@ export async function initializeDatabase() {
         sender VARCHAR(10) NOT NULL CHECK (sender IN ('user', 'bot')),
         text TEXT NOT NULL,
         timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        sentiment_score NUMERIC,
+        sentiment_comparative NUMERIC,
+        sentiment_label VARCHAR(10) CHECK (sentiment_label IN ('positive', 'neutral', 'negative')),
+        sentiment_magnitude VARCHAR(10) CHECK (sentiment_magnitude IN ('low', 'medium', 'high'))
       )
     `;
 
@@ -73,7 +79,11 @@ export async function initializeDatabase() {
         sender VARCHAR(10) NOT NULL CHECK (sender IN ('user', 'bot')),
         text TEXT NOT NULL,
         timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        sentiment_score NUMERIC,
+        sentiment_comparative NUMERIC,
+        sentiment_label VARCHAR(10) CHECK (sentiment_label IN ('positive', 'neutral', 'negative')),
+        sentiment_magnitude VARCHAR(10) CHECK (sentiment_magnitude IN ('low', 'medium', 'high'))
       )
     `;
 
@@ -94,6 +104,124 @@ export async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_chat_messages_timestamp ON chat_messages(timestamp)
     `;
 
+    // Migrate existing tables to add sentiment columns if they don't exist
+    // Check and add sentiment columns to messages table
+    try {
+      const messagesColumns = await sql`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'messages' AND column_name = 'sentiment_score'
+      `;
+      
+      if (messagesColumns.length === 0) {
+        console.log('Migrating messages table: adding sentiment columns...');
+        await sql`ALTER TABLE messages ADD COLUMN sentiment_score NUMERIC`;
+        await sql`ALTER TABLE messages ADD COLUMN sentiment_comparative NUMERIC`;
+        await sql`ALTER TABLE messages ADD COLUMN sentiment_label VARCHAR(10)`;
+        await sql`ALTER TABLE messages ADD COLUMN sentiment_magnitude VARCHAR(10)`;
+        // Add check constraints separately (with IF NOT EXISTS check)
+        try {
+          await sql`
+            ALTER TABLE messages 
+            ADD CONSTRAINT messages_sentiment_label_check 
+            CHECK (sentiment_label IS NULL OR sentiment_label IN ('positive', 'neutral', 'negative'))
+          `;
+        } catch (e: any) {
+          if (!e?.message?.includes('already exists')) {
+            throw e;
+          }
+        }
+        try {
+          await sql`
+            ALTER TABLE messages 
+            ADD CONSTRAINT messages_sentiment_magnitude_check 
+            CHECK (sentiment_magnitude IS NULL OR sentiment_magnitude IN ('low', 'medium', 'high'))
+          `;
+        } catch (e: any) {
+          if (!e?.message?.includes('already exists')) {
+            throw e;
+          }
+        }
+        console.log('Messages table migration completed');
+      }
+    } catch (error: any) {
+      console.warn('Error migrating messages table:', error);
+    }
+
+    // Check and add sentiment columns to chat_messages table
+    try {
+      const chatMessagesColumns = await sql`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'chat_messages' AND column_name = 'sentiment_score'
+      `;
+      
+      if (chatMessagesColumns.length === 0) {
+        console.log('Migrating chat_messages table: adding sentiment columns...');
+        await sql`ALTER TABLE chat_messages ADD COLUMN sentiment_score NUMERIC`;
+        await sql`ALTER TABLE chat_messages ADD COLUMN sentiment_comparative NUMERIC`;
+        await sql`ALTER TABLE chat_messages ADD COLUMN sentiment_label VARCHAR(10)`;
+        await sql`ALTER TABLE chat_messages ADD COLUMN sentiment_magnitude VARCHAR(10)`;
+        // Add check constraints separately
+        try {
+          await sql`
+            ALTER TABLE chat_messages 
+            ADD CONSTRAINT chat_messages_sentiment_label_check 
+            CHECK (sentiment_label IS NULL OR sentiment_label IN ('positive', 'neutral', 'negative'))
+          `;
+        } catch (e: any) {
+          if (!e?.message?.includes('already exists')) {
+            throw e;
+          }
+        }
+        try {
+          await sql`
+            ALTER TABLE chat_messages 
+            ADD CONSTRAINT chat_messages_sentiment_magnitude_check 
+            CHECK (sentiment_magnitude IS NULL OR sentiment_magnitude IN ('low', 'medium', 'high'))
+          `;
+        } catch (e: any) {
+          if (!e?.message?.includes('already exists')) {
+            throw e;
+          }
+        }
+        console.log('Chat_messages table migration completed');
+      }
+    } catch (error: any) {
+      console.warn('Error migrating chat_messages table:', error);
+    }
+
+    // Create sentiment indexes (only if columns exist)
+    try {
+      const chatMessagesHasColumn = await sql`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'chat_messages' AND column_name = 'sentiment_label'
+      `;
+      if (chatMessagesHasColumn.length > 0) {
+        await sql`
+          CREATE INDEX IF NOT EXISTS idx_chat_messages_sentiment_label ON chat_messages(sentiment_label)
+        `;
+      }
+    } catch (error) {
+      console.warn('Error creating chat_messages sentiment index:', error);
+    }
+
+    try {
+      const messagesHasColumn = await sql`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'messages' AND column_name = 'sentiment_label'
+      `;
+      if (messagesHasColumn.length > 0) {
+        await sql`
+          CREATE INDEX IF NOT EXISTS idx_messages_sentiment_label ON messages(sentiment_label)
+        `;
+      }
+    } catch (error) {
+      console.warn('Error creating messages sentiment index:', error);
+    }
+
     console.log('Database schema initialized successfully');
   } catch (error) {
     console.error('Error initializing database:', error);
@@ -113,12 +241,28 @@ export async function loadCases(): Promise<Case[]> {
     const cases: Case[] = [];
 
     for (const caseRow of casesResult) {
-      const messagesResult = await sql`
-        SELECT sender, text, timestamp
-        FROM messages
-        WHERE case_id = ${caseRow.id}
-        ORDER BY timestamp ASC
-      `;
+      // Try to select with sentiment columns, fallback if they don't exist
+      let messagesResult: any[];
+      try {
+        messagesResult = await sql`
+          SELECT sender, text, timestamp, sentiment_score, sentiment_comparative, sentiment_label, sentiment_magnitude
+          FROM messages
+          WHERE case_id = ${caseRow.id}
+          ORDER BY timestamp ASC
+        `;
+      } catch (error: any) {
+        // If sentiment columns don't exist, select without them
+        if (error?.code === '42703') {
+          messagesResult = await sql`
+            SELECT sender, text, timestamp
+            FROM messages
+            WHERE case_id = ${caseRow.id}
+            ORDER BY timestamp ASC
+          `;
+        } else {
+          throw error;
+        }
+      }
 
       cases.push({
         id: caseRow.id,
@@ -130,6 +274,12 @@ export async function loadCases(): Promise<Case[]> {
           sender: msg.sender as 'user' | 'bot',
           text: msg.text,
           timestamp: msg.timestamp.toISOString(),
+          sentiment: msg.sentiment_score !== null && msg.sentiment_score !== undefined ? {
+            score: parseFloat(msg.sentiment_score),
+            comparative: parseFloat(msg.sentiment_comparative),
+            label: msg.sentiment_label as 'positive' | 'neutral' | 'negative',
+            magnitude: msg.sentiment_magnitude as 'low' | 'medium' | 'high',
+          } : undefined,
         })),
       });
     }
@@ -161,12 +311,28 @@ export async function loadCaseById(caseId: string): Promise<Case | null> {
 
     const caseRow = caseResult[0];
 
-    const messagesResult = await sql`
-      SELECT sender, text, timestamp
-      FROM messages
-      WHERE case_id = ${caseId}
-      ORDER BY timestamp ASC
-    `;
+    // Try to select with sentiment columns, fallback if they don't exist
+    let messagesResult: any[];
+    try {
+      messagesResult = await sql`
+        SELECT sender, text, timestamp, sentiment_score, sentiment_comparative, sentiment_label, sentiment_magnitude
+        FROM messages
+        WHERE case_id = ${caseId}
+        ORDER BY timestamp ASC
+      `;
+    } catch (error: any) {
+      // If sentiment columns don't exist, select without them
+      if (error?.code === '42703') {
+        messagesResult = await sql`
+          SELECT sender, text, timestamp
+          FROM messages
+          WHERE case_id = ${caseId}
+          ORDER BY timestamp ASC
+        `;
+      } else {
+        throw error;
+      }
+    }
 
     return {
       id: caseRow.id,
@@ -178,6 +344,12 @@ export async function loadCaseById(caseId: string): Promise<Case | null> {
         sender: msg.sender as 'user' | 'bot',
         text: msg.text,
         timestamp: msg.timestamp.toISOString(),
+        sentiment: msg.sentiment_score !== null && msg.sentiment_score !== undefined ? {
+          score: parseFloat(msg.sentiment_score),
+          comparative: parseFloat(msg.sentiment_comparative),
+          label: msg.sentiment_label as 'positive' | 'neutral' | 'negative',
+          magnitude: msg.sentiment_magnitude as 'low' | 'medium' | 'high',
+        } : undefined,
       })),
     };
   } catch (error) {
@@ -203,12 +375,51 @@ export async function saveCase(caseData: Case): Promise<void> {
     // Delete existing messages and insert new ones
     await sql`DELETE FROM messages WHERE case_id = ${caseData.id}`;
 
-    // Insert messages
+    // Check if all sentiment columns exist
+    const sentimentColumns = await sql`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'messages' 
+        AND column_name IN ('sentiment_score', 'sentiment_comparative', 'sentiment_label', 'sentiment_magnitude')
+    `;
+    
+    const hasAllSentimentColumns = sentimentColumns.length === 4;
+
+    // Insert messages with sentiment analysis
     for (const message of caseData.messages) {
-      await sql`
-        INSERT INTO messages (case_id, sender, text, timestamp)
-        VALUES (${caseData.id}, ${message.sender}, ${message.text}, ${message.timestamp})
-      `;
+      // Analyze sentiment for user messages only
+      let sentiment = message.sentiment;
+      if (!sentiment && message.sender === 'user') {
+        sentiment = analyzeSentiment(message.text);
+      }
+      
+      if (hasAllSentimentColumns) {
+        // Insert with sentiment columns
+        await sql`
+          INSERT INTO messages (case_id, sender, text, timestamp, sentiment_score, sentiment_comparative, sentiment_label, sentiment_magnitude)
+          VALUES (
+            ${caseData.id}, 
+            ${message.sender}, 
+            ${message.text}, 
+            ${message.timestamp},
+            ${sentiment?.score ?? null},
+            ${sentiment?.comparative ?? null},
+            ${sentiment?.label ?? null},
+            ${sentiment?.magnitude ?? null}
+          )
+        `;
+      } else {
+        // Fallback: insert without sentiment columns
+        await sql`
+          INSERT INTO messages (case_id, sender, text, timestamp)
+          VALUES (
+            ${caseData.id}, 
+            ${message.sender}, 
+            ${message.text}, 
+            ${message.timestamp}
+          )
+        `;
+      }
     }
   } catch (error) {
     console.error('Error saving case:', error);

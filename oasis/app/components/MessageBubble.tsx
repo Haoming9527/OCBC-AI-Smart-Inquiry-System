@@ -1,6 +1,7 @@
 'use client';
 
 import { Message } from './ChatBot';
+import { getSentimentEmoji, getSentimentColor } from '../../lib/sentiment-utils';
 
 interface MessageBubbleProps {
   message: Message;
@@ -75,9 +76,19 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
             {message.text}
           </p>
         </div>
-        <span className="text-xs text-gray-500 dark:text-gray-400">
-          {timeString}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            {timeString}
+          </span>
+          {isUser && message.sentiment && (
+            <span
+              className={`text-xs font-medium ${getSentimentColor(message.sentiment.label)}`}
+              title={`Sentiment: ${message.sentiment.label} (${message.sentiment.magnitude})`}
+            >
+              {getSentimentEmoji(message.sentiment.label)} {message.sentiment.label}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

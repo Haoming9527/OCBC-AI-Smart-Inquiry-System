@@ -8,6 +8,7 @@ import BankingGuide from './BankingGuide';
 import SelfServiceLinks from './SelfServiceLinks';
 import ChatHistory from './ChatHistory';
 import { detectBankingQuery, BankingGuide as BankingGuideType, SelfServiceLink } from '../lib/banking-knowledge';
+import { analyzeSentiment, shouldEscalateBySentiment, SentimentAnalysis } from '../../lib/sentiment-utils';
 
 export interface Message {
   id: string;
@@ -16,10 +17,11 @@ export interface Message {
   timestamp: Date;
   guide?: BankingGuideType;
   links?: SelfServiceLink[];
+  sentiment?: SentimentAnalysis;
 }
 
 // Escalation detection logic
-function shouldEscalate(botResponse: string, userMessage: string): boolean {
+function shouldEscalate(botResponse: string, userMessage: string, userSentiment?: SentimentAnalysis): boolean {
   const escalationKeywords = [
     'cannot help',
     "can't help",
@@ -62,7 +64,10 @@ function shouldEscalate(botResponse: string, userMessage: string): boolean {
     userLower.includes(keyword)
   );
 
-  return botNeedsEscalation || userRequestsEscalation;
+  // Check if sentiment indicates escalation is needed
+  const sentimentNeedsEscalation = userSentiment ? shouldEscalateBySentiment(userSentiment) : false;
+
+  return botNeedsEscalation || userRequestsEscalation || sentimentNeedsEscalation;
 }
 
 export default function ChatBot() {
@@ -142,11 +147,15 @@ export default function ChatBot() {
   const handleSendMessage = async (text: string) => {
     if (!text.trim()) return;
 
+    // Analyze sentiment for user message
+    const userSentiment = analyzeSentiment(text.trim());
+
     const userMessage: Message = {
       id: Date.now().toString(),
       text: text.trim(),
       sender: 'user',
       timestamp: new Date(),
+      sentiment: userSentiment,
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -196,8 +205,8 @@ export default function ChatBot() {
         await saveMessageToHistory(currentSessionId, userId, 'bot', botResponse);
       }
 
-      // Check if escalation is needed
-      const needsEscalation = shouldEscalate(botResponse, text);
+      // Check if escalation is needed (including sentiment-based escalation)
+      const needsEscalation = shouldEscalate(botResponse, text, userSentiment);
       
       if (needsEscalation && !escalatedCaseId) {
         // Create case and generate QR code
@@ -267,6 +276,12 @@ export default function ChatBot() {
                     text: msg.text,
                     sender: msg.sender,
                     timestamp: new Date(msg.timestamp),
+                    sentiment: msg.sentiment ? {
+                      score: msg.sentiment.score,
+                      comparative: msg.sentiment.comparative,
+                      label: msg.sentiment.label,
+                      magnitude: msg.sentiment.magnitude,
+                    } : undefined,
                   }))
                 );
                 setShowHistory(false);
