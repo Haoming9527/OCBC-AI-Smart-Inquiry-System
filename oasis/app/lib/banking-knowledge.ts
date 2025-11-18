@@ -379,9 +379,9 @@ export const selfServiceLinks: SelfServiceLink[] = [
   },
   {
     id: 'loan-calculator',
-    title: 'Loan Calculator',
-    description: 'Calculate your loan eligibility, monthly payments, and interest rates instantly.',
-    url: 'https://www.ocbc.com/personal-banking/loans/calculator',
+    title: 'Loans & Financing',
+    description: 'Explore OCBC personal, home, car, and study loans with flexible repayment options.',
+    url: 'https://www.ocbc.com/personal-banking/loans.page',
     category: 'loan',
     icon: '💰',
   },
@@ -416,6 +416,14 @@ export const selfServiceLinks: SelfServiceLink[] = [
     url: 'https://www.ocbc.com/faq',
     category: 'general',
     icon: '❓',
+  },
+  {
+    id: 'help-support',
+    title: 'Help & Support Centre',
+    description: 'Browse OCBC’s full library of FAQs, forms, and contact options for every product.',
+    url: 'https://www.ocbc.com/personal-banking/help-and-support',
+    category: 'general',
+    icon: '🆘',
   },
   {
     id: 'security-tips',

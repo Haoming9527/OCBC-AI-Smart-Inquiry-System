@@ -13,6 +13,8 @@ interface Case {
   }>;
   status: 'open' | 'resolved' | 'escalated';
   summary?: string;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
   escalatedAt?: string;
 }
 
@@ -130,6 +132,16 @@ export default function AdminDashboard() {
         return sortOrder === 'asc' ? orderA - orderB : orderB - orderA;
       }
     });
+
+  const handleExport = (format = 'csv') => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams({ format });
+    if (statusFilter !== 'all') {
+      params.append('status', statusFilter);
+    }
+    const url = `/api/cases/export?${params.toString()}`;
+    window.open(url, '_blank');
+  };
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
@@ -318,64 +330,78 @@ export default function AdminDashboard() {
 
         {/* Filters and Search */}
         <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            {/* Search */}
-            <div className="md:col-span-2">
-              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Search
-              </label>
-              <input
-                type="text"
-                placeholder="Search by case ID, summary, or message..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              />
-            </div>
-
-            {/* Status Filter */}
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Status
-              </label>
-              <select
-                value={statusFilter}
-                onChange={(e) =>
-                  setStatusFilter(
-                    e.target.value as 'all' | 'open' | 'resolved' | 'escalated'
-                  )
-                }
-                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              >
-                <option value="all">All Status</option>
-                <option value="open">Open</option>
-                <option value="escalated">Escalated</option>
-                <option value="resolved">Resolved</option>
-              </select>
-            </div>
-
-            {/* Sort */}
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Sort By
-              </label>
-              <div className="flex gap-2">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as 'timestamp' | 'status')}
-                  className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="timestamp">Date</option>
-                  <option value="status">Status</option>
-                </select>
-                <button
-                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:hover:bg-gray-600"
-                  title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
-                >
-                  {sortOrder === 'asc' ? '↑' : '↓'}
-                </button>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-4">
+              {/* Search */}
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Search
+                </label>
+                <input
+                  type="text"
+                  placeholder="Search by case ID, summary, or message..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                />
               </div>
+
+              {/* Status Filter */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Status
+                </label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) =>
+                    setStatusFilter(
+                      e.target.value as 'all' | 'open' | 'resolved' | 'escalated'
+                    )
+                  }
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="all">All Status</option>
+                  <option value="open">Open</option>
+                  <option value="escalated">Escalated</option>
+                  <option value="resolved">Resolved</option>
+                </select>
+              </div>
+
+              {/* Sort */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Sort By
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as 'timestamp' | 'status')}
+                    className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="timestamp">Date</option>
+                    <option value="status">Status</option>
+                  </select>
+                  <button
+                    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:hover:bg-gray-600"
+                    title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                  >
+                    {sortOrder === 'asc' ? '↑' : '↓'}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => handleExport('csv')}
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-100 dark:hover:bg-gray-700"
+              >
+                Export CSV
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v16h16V8l-6-4H4z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 3v5h5" />
+                </svg>
+              </button>
             </div>
           </div>
         </div>
@@ -431,6 +457,16 @@ export default function AdminDashboard() {
                         <p className="max-w-xs truncate text-sm text-gray-900 dark:text-gray-100">
                           {caseItem.summary || 'No summary'}
                         </p>
+                        {(caseItem.contactEmail || caseItem.contactPhone) && (
+                          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            {caseItem.contactEmail && (
+                              <p>📧 {caseItem.contactEmail}</p>
+                            )}
+                            {caseItem.contactPhone && (
+                              <p>📱 {caseItem.contactPhone}</p>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <p className="max-w-xs truncate text-sm text-gray-600 dark:text-gray-400">

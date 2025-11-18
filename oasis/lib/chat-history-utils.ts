@@ -1,5 +1,23 @@
+import { randomUUID } from 'crypto';
+import { Buffer } from 'buffer';
 import { sql } from './db';
 import { analyzeSentiment, SentimentAnalysis } from './sentiment-utils';
+
+export interface ChatAttachment {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  data?: string;
+}
+
+export interface ChatAttachmentInput {
+  id?: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  data: string;
+}
 
 export interface ChatMessage {
   id: number;
@@ -7,6 +25,7 @@ export interface ChatMessage {
   text: string;
   timestamp: string;
   sentiment?: SentimentAnalysis;
+  attachments?: ChatAttachment[];
 }
 
 export interface ChatSession {
@@ -66,7 +85,8 @@ export async function createChatSession(
 export async function saveChatMessage(
   sessionId: string,
   sender: 'user' | 'bot',
-  text: string
+  text: string,
+  attachments?: ChatAttachmentInput[]
 ): Promise<void> {
   // Analyze sentiment for user messages only
   let sentiment: SentimentAnalysis | undefined;
@@ -84,32 +104,55 @@ export async function saveChatMessage(
   
   const hasAllSentimentColumns = sentimentColumns.length === 4;
 
+  const timestamp = new Date().toISOString();
+  let messageId: number | null = null;
+
   if (hasAllSentimentColumns) {
-    // Insert with sentiment columns
-    await sql`
+    const result = await sql`
       INSERT INTO chat_messages (session_id, sender, text, timestamp, sentiment_score, sentiment_comparative, sentiment_label, sentiment_magnitude)
       VALUES (
         ${sessionId}, 
         ${sender}, 
         ${text}, 
-        ${new Date().toISOString()},
+        ${timestamp},
         ${sentiment?.score ?? null},
         ${sentiment?.comparative ?? null},
         ${sentiment?.label ?? null},
         ${sentiment?.magnitude ?? null}
       )
+      RETURNING id
     `;
+    messageId = result[0]?.id ?? null;
   } else {
-    // Fallback: insert without sentiment columns (for backwards compatibility)
-    await sql`
+    const result = await sql`
       INSERT INTO chat_messages (session_id, sender, text, timestamp)
       VALUES (
         ${sessionId}, 
         ${sender}, 
         ${text}, 
-        ${new Date().toISOString()}
+        ${timestamp}
       )
+      RETURNING id
     `;
+    messageId = result[0]?.id ?? null;
+  }
+
+  if (messageId && attachments && attachments.length > 0) {
+    for (const attachment of attachments) {
+      const attachmentId = attachment.id || randomUUID();
+      const buffer = Buffer.from(attachment.data, 'base64');
+      await sql`
+        INSERT INTO attachments (id, message_id, file_name, mime_type, file_size, data)
+        VALUES (
+          ${attachmentId},
+          ${messageId},
+          ${attachment.fileName},
+          ${attachment.mimeType || 'application/octet-stream'},
+          ${attachment.fileSize},
+          ${buffer}
+        )
+      `;
+    }
   }
 
   // Update session's last message preview and updated_at
@@ -201,6 +244,24 @@ export async function getSessionWithMessages(
     }
   }
 
+  // Load attachments for messages
+  const attachmentsByMessage: Record<number, ChatAttachment[]> = {};
+  for (const message of messagesResult) {
+    const attachmentRows = await sql`
+      SELECT id, file_name, mime_type, file_size, data
+      FROM attachments
+      WHERE message_id = ${message.id}
+      ORDER BY created_at ASC
+    `;
+    attachmentsByMessage[message.id] = attachmentRows.map((att: any) => ({
+      id: att.id,
+      fileName: att.file_name,
+      mimeType: att.mime_type,
+      fileSize: att.file_size,
+      data: Buffer.isBuffer(att.data) ? att.data.toString('base64') : att.data,
+    }));
+  }
+
   return {
     id: session.id,
     userId: session.user_id,
@@ -220,6 +281,7 @@ export async function getSessionWithMessages(
         label: m.sentiment_label as 'positive' | 'neutral' | 'negative',
         magnitude: m.sentiment_magnitude as 'low' | 'medium' | 'high',
       } : undefined,
+      attachments: attachmentsByMessage[m.id] || [],
     })),
   };
 }

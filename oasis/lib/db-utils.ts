@@ -12,6 +12,8 @@ export interface Case {
   }>;
   status: 'open' | 'resolved' | 'escalated';
   summary?: string;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
   escalatedAt?: string;
 }
 
@@ -25,6 +27,8 @@ export async function initializeDatabase() {
         timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
         status VARCHAR(20) NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'resolved', 'escalated')),
         summary TEXT,
+        contact_email VARCHAR(255),
+        contact_phone VARCHAR(50),
         escalated_at TIMESTAMP WITH TIME ZONE,
         created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
@@ -103,6 +107,20 @@ export async function initializeDatabase() {
     await sql`
       CREATE INDEX IF NOT EXISTS idx_chat_messages_timestamp ON chat_messages(timestamp)
     `;
+
+    // Ensure contact columns exist on cases table
+    try {
+      await sql`
+        ALTER TABLE cases
+        ADD COLUMN IF NOT EXISTS contact_email VARCHAR(255)
+      `;
+      await sql`
+        ALTER TABLE cases
+        ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(50)
+      `;
+    } catch (error) {
+      console.warn('Error ensuring contact columns on cases table:', error);
+    }
 
     // Migrate existing tables to add sentiment columns if they don't exist
     // Check and add sentiment columns to messages table
@@ -222,6 +240,22 @@ export async function initializeDatabase() {
       console.warn('Error creating messages sentiment index:', error);
     }
 
+    // Create attachments table for chat message files
+    await sql`
+      CREATE TABLE IF NOT EXISTS attachments (
+        id VARCHAR(255) PRIMARY KEY,
+        message_id INTEGER NOT NULL REFERENCES chat_messages(id) ON DELETE CASCADE,
+        file_name TEXT NOT NULL,
+        mime_type VARCHAR(100) NOT NULL,
+        file_size INTEGER NOT NULL,
+        data BYTEA NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      )
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_attachments_message_id ON attachments(message_id)
+    `;
+
     console.log('Database schema initialized successfully');
   } catch (error) {
     console.error('Error initializing database:', error);
@@ -233,7 +267,7 @@ export async function initializeDatabase() {
 export async function loadCases(): Promise<Case[]> {
   try {
     const casesResult = await sql`
-      SELECT id, timestamp, status, summary, escalated_at
+      SELECT id, timestamp, status, summary, contact_email, contact_phone, escalated_at
       FROM cases
       ORDER BY timestamp DESC
     `;
@@ -269,6 +303,8 @@ export async function loadCases(): Promise<Case[]> {
         timestamp: caseRow.timestamp.toISOString(),
         status: caseRow.status as 'open' | 'resolved' | 'escalated',
         summary: caseRow.summary || undefined,
+        contactEmail: caseRow.contact_email || undefined,
+        contactPhone: caseRow.contact_phone || undefined,
         escalatedAt: caseRow.escalated_at ? caseRow.escalated_at.toISOString() : undefined,
         messages: messagesResult.map((msg: any) => ({
           sender: msg.sender as 'user' | 'bot',
@@ -300,7 +336,7 @@ export async function loadCases(): Promise<Case[]> {
 export async function loadCaseById(caseId: string): Promise<Case | null> {
   try {
     const caseResult = await sql`
-      SELECT id, timestamp, status, summary, escalated_at
+      SELECT id, timestamp, status, summary, contact_email, contact_phone, escalated_at
       FROM cases
       WHERE id = ${caseId}
     `;
@@ -339,6 +375,8 @@ export async function loadCaseById(caseId: string): Promise<Case | null> {
       timestamp: caseRow.timestamp.toISOString(),
       status: caseRow.status as 'open' | 'resolved' | 'escalated',
       summary: caseRow.summary || undefined,
+      contactEmail: caseRow.contact_email || undefined,
+      contactPhone: caseRow.contact_phone || undefined,
       escalatedAt: caseRow.escalated_at ? caseRow.escalated_at.toISOString() : undefined,
       messages: messagesResult.map((msg: any) => ({
         sender: msg.sender as 'user' | 'bot',
@@ -363,11 +401,21 @@ export async function saveCase(caseData: Case): Promise<void> {
   try {
     // Insert case
     await sql`
-      INSERT INTO cases (id, timestamp, status, summary, escalated_at)
-      VALUES (${caseData.id}, ${caseData.timestamp}, ${caseData.status}, ${caseData.summary || null}, ${caseData.escalatedAt || null})
+      INSERT INTO cases (id, timestamp, status, summary, contact_email, contact_phone, escalated_at)
+      VALUES (
+        ${caseData.id},
+        ${caseData.timestamp},
+        ${caseData.status},
+        ${caseData.summary || null},
+        ${caseData.contactEmail || null},
+        ${caseData.contactPhone || null},
+        ${caseData.escalatedAt || null}
+      )
       ON CONFLICT (id) DO UPDATE
       SET status = ${caseData.status},
           summary = ${caseData.summary || null},
+          contact_email = ${caseData.contactEmail || null},
+          contact_phone = ${caseData.contactPhone || null},
           escalated_at = ${caseData.escalatedAt || null},
           updated_at = NOW()
     `;

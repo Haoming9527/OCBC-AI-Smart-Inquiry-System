@@ -13,6 +13,8 @@ interface Case {
   }>;
   status: 'open' | 'resolved' | 'escalated';
   summary?: string;
+  contactEmail?: string;
+  contactPhone?: string;
   escalatedAt?: string;
 }
 
@@ -22,6 +24,7 @@ export default function CaseDetailsPage() {
   const [caseData, setCaseData] = useState<Case | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [canAccessAdmin, setCanAccessAdmin] = useState(false);
 
   useEffect(() => {
     const fetchCase = async () => {
@@ -45,6 +48,15 @@ export default function CaseDetailsPage() {
 
     fetchCase();
   }, [caseId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const referrer = document.referrer;
+    const urlParams = new URLSearchParams(window.location.search);
+    if (referrer.includes('/admin') || urlParams.get('admin') === '1') {
+      setCanAccessAdmin(true);
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -115,6 +127,34 @@ export default function CaseDetailsPage() {
                 <p className="text-sm font-medium text-gray-900 dark:text-white">
                   {new Date(caseData.escalatedAt).toLocaleString()}
                 </p>
+              </div>
+            )}
+            {(caseData.contactEmail || caseData.contactPhone) && (
+              <div className="md:col-span-2 rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
+                <p className="text-xs font-semibold text-blue-900 dark:text-blue-200">
+                  Customer Contact Preferences
+                </p>
+                <div className="mt-2 space-y-1 text-sm text-blue-900 dark:text-blue-100">
+                  {caseData.contactEmail && (
+                    <p>
+                      Email:{' '}
+                      <a
+                        href={`mailto:${caseData.contactEmail}`}
+                        className="underline"
+                      >
+                        {caseData.contactEmail}
+                      </a>
+                    </p>
+                  )}
+                  {caseData.contactPhone && (
+                    <p>SMS / Phone: {caseData.contactPhone}</p>
+                  )}
+                  {!caseData.contactEmail && !caseData.contactPhone && (
+                    <p className="text-blue-700 dark:text-blue-200">
+                      No contact details provided.
+                    </p>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -216,22 +256,32 @@ export default function CaseDetailsPage() {
         </div>
 
         {/* Actions */}
-        <div className="mt-6 flex gap-4">
+        <div className={`mt-6 grid gap-4 ${canAccessAdmin ? 'md:grid-cols-4' : 'md:grid-cols-3'} grid-cols-1`}>
+          {canAccessAdmin && (
+            <a
+              href="/admin"
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-center text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+            >
+              Back to Admin Dashboard
+            </a>
+          )}
           <a
-            href="/admin"
-            className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-center text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+            href={`/api/cases/${caseData.id}/export?format=csv`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-center text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
           >
-            Back to Admin Dashboard
+            Export Chat (CSV)
           </a>
           <a
             href="/"
-            className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-center text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-center text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
           >
             Go to Chat
           </a>
           <button
             onClick={() => window.print()}
-            className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
           >
             Print Case
           </button>

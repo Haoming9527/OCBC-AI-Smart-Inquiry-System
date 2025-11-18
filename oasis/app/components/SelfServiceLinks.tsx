@@ -4,16 +4,24 @@ import { SelfServiceLink } from '../lib/banking-knowledge';
 
 interface SelfServiceLinksProps {
   links: SelfServiceLink[];
+  heading?: string;
+  className?: string;
 }
 
-export default function SelfServiceLinksComponent({ links }: SelfServiceLinksProps) {
+export default function SelfServiceLinksComponent({
+  links,
+  heading = '🔗 Self-Service Options',
+  className = 'my-4',
+}: SelfServiceLinksProps) {
   if (links.length === 0) return null;
 
   return (
-    <div className="my-4 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20">
-      <h3 className="mb-3 text-lg font-semibold text-green-900 dark:text-green-100">
-        🔗 Self-Service Options
-      </h3>
+    <div className={`${className} rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20`}>
+      {heading && (
+        <h3 className="mb-3 text-lg font-semibold text-green-900 dark:text-green-100">
+          {heading}
+        </h3>
+      )}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {links.map((link) => (
           <a

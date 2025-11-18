@@ -18,7 +18,16 @@ async function ensureDatabaseInitialized() {
 export async function POST(request: NextRequest) {
   try {
     await ensureDatabaseInitialized();
-    const { messages, summary } = await request.json();
+    const { messages, summary, contactEmail, contactPhone } = await request.json();
+
+    const normalizedEmail =
+      typeof contactEmail === 'string' && contactEmail.trim().length > 0
+        ? contactEmail.trim()
+        : null;
+    const normalizedPhone =
+      typeof contactPhone === 'string' && contactPhone.trim().length > 0
+        ? contactPhone.trim()
+        : null;
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json(
@@ -37,6 +46,8 @@ export async function POST(request: NextRequest) {
       })),
       status: 'open' as const,
       summary: summary || 'Customer enquiry requiring human assistance',
+      contactEmail: normalizedEmail,
+      contactPhone: normalizedPhone,
     };
 
     await saveCase(newCase);

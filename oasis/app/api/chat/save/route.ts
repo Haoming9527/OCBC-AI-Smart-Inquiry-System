@@ -20,16 +20,69 @@ async function ensureDatabaseInitialized() {
 }
 
 // POST: Save a message to a session
+const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024; // 5MB per file
+const MAX_ATTACHMENTS = 5;
+
 export async function POST(request: NextRequest) {
   try {
     await ensureDatabaseInitialized();
-    const { sessionId, userId, sender, text, createNewSession } = await request.json();
+    const {
+      sessionId,
+      userId,
+      sender,
+      text,
+      createNewSession,
+      attachments,
+    } = await request.json();
 
-    if (!sender || !text) {
+    if (!sender || (!text?.trim() && (!attachments || attachments.length === 0))) {
       return NextResponse.json(
-        { error: 'Sender and text are required' },
+        { error: 'Sender and either text or attachments are required' },
         { status: 400 }
       );
+    }
+
+    let normalizedAttachments: any[] = [];
+    if (attachments && Array.isArray(attachments)) {
+      if (attachments.length > MAX_ATTACHMENTS) {
+        return NextResponse.json(
+          { error: `You can attach up to ${MAX_ATTACHMENTS} files per message.` },
+          { status: 400 }
+        );
+      }
+
+      try {
+        normalizedAttachments = attachments.map((attachment: any) => {
+          if (
+            !attachment ||
+            !attachment.fileName ||
+            !attachment.mimeType ||
+            typeof attachment.fileSize !== 'number' ||
+            !attachment.data
+          ) {
+            throw new Error('Invalid attachment payload');
+          }
+          if (attachment.fileSize > MAX_ATTACHMENT_SIZE) {
+            throw new Error(
+              `File "${attachment.fileName}" exceeds the maximum size of ${Math.round(
+                MAX_ATTACHMENT_SIZE / (1024 * 1024)
+              )}MB.`
+            );
+          }
+          return {
+            id: attachment.id,
+            fileName: attachment.fileName,
+            mimeType: attachment.mimeType,
+            fileSize: attachment.fileSize,
+            data: attachment.data,
+          };
+        });
+      } catch (attachmentError: any) {
+        return NextResponse.json(
+          { error: attachmentError?.message || 'Invalid attachment.' },
+          { status: 400 }
+        );
+      }
     }
 
     let finalSessionId = sessionId;
@@ -42,7 +95,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Save the message
-    await saveChatMessage(finalSessionId, sender, text);
+    await saveChatMessage(finalSessionId, sender, text || '', normalizedAttachments);
 
     return NextResponse.json({
       success: true,

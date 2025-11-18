@@ -17,9 +17,10 @@ interface ChatHistoryProps {
   userId: string;
   onClose: () => void;
   onLoadSession: (sessionId: string) => void;
+  onViewSession: (sessionId: string) => void;
 }
 
-export default function ChatHistory({ userId, onClose, onLoadSession }: ChatHistoryProps) {
+export default function ChatHistory({ userId, onClose, onLoadSession, onViewSession }: ChatHistoryProps) {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -196,14 +197,14 @@ export default function ChatHistory({ userId, onClose, onLoadSession }: ChatHist
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      {/* Overlay */}
+      {/* Overlay (hidden on desktop so chat stays visible) */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50"
+        className="absolute inset-0 bg-black/40 dark:bg-black/70 md:bg-transparent md:dark:bg-transparent"
         onClick={onClose}
-      ></div>
+      />
 
       {/* Sidebar */}
-      <div className="relative w-full max-w-md bg-white shadow-xl dark:bg-gray-800">
+      <div className="relative z-10 h-full w-full max-w-md bg-white shadow-xl dark:bg-gray-800 flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -279,7 +280,7 @@ export default function ChatHistory({ userId, onClose, onLoadSession }: ChatHist
                   <div className="flex items-start justify-between">
                     <div
                       className="flex-1 cursor-pointer"
-                      onClick={() => onLoadSession(session.id)}
+                      onClick={() => onViewSession(session.id)}
                     >
                       {editingTitle === session.id ? (
                         <div className="flex items-center gap-2">
@@ -307,17 +308,17 @@ export default function ChatHistory({ userId, onClose, onLoadSession }: ChatHist
                         </div>
                       ) : (
                         <div>
-                          <h3 className="font-medium text-gray-900 dark:text-white">
+                          <h3 className="text-sm font-medium text-gray-900 dark:text-white">
                             {session.title ||
                               session.lastMessagePreview ||
                               'New Conversation'}
                           </h3>
                           {session.lastMessagePreview && (
-                            <p className="mt-1 truncate text-sm text-gray-500 dark:text-gray-400">
+                            <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
                               {session.lastMessagePreview}
                             </p>
                           )}
-                          <div className="mt-2 flex items-center gap-4 text-xs text-gray-400">
+                          <div className="mt-1 flex items-center gap-3 text-[11px] text-gray-400">
                             <span>{formatDate(session.updatedAt)}</span>
                             {session.messageCount !== undefined && (
                               <span>{session.messageCount} messages</span>
@@ -330,7 +331,32 @@ export default function ChatHistory({ userId, onClose, onLoadSession }: ChatHist
                     {/* Actions */}
                     <div className="ml-4 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                       <button
-                        onClick={() => handleBookmark(session.id, session.isBookmarked)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onLoadSession(session.id);
+                        }}
+                        className="rounded p-1.5 text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                        title="Load this conversation"
+                      >
+                        <svg
+                          className="h-5 w-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                          />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleBookmark(session.id, session.isBookmarked);
+                        }}
                         className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-600"
                         title={session.isBookmarked ? 'Remove bookmark' : 'Bookmark'}
                       >
