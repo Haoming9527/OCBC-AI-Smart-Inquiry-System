@@ -26,6 +26,7 @@ export default function AdminDashboard() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'resolved' | 'escalated'>('all');
   const [sortBy, setSortBy] = useState<'timestamp' | 'status'>('timestamp');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [activeTab, setActiveTab] = useState<'overview' | 'cases'>('overview');
 
   useEffect(() => {
     fetchCases();
@@ -100,6 +101,61 @@ export default function AdminDashboard() {
     escalated: cases.filter((c) => c.status === 'escalated').length,
     resolved: cases.filter((c) => c.status === 'resolved').length,
   };
+
+  const totalMessages = cases.reduce((sum, c) => sum + c.messages.length, 0);
+  const averageMessagesPerCase = stats.total ? (totalMessages / stats.total).toFixed(1) : '0';
+
+  const resolvedCases = cases.filter((c) => c.status === 'resolved');
+  const averageResolutionTimeHours = (() => {
+    if (!resolvedCases.length) return '—';
+
+    const totalDuration = resolvedCases.reduce((sum, c) => {
+      const start = new Date(c.timestamp).getTime();
+      const lastMessageTime = c.messages.length
+        ? new Date(c.messages[c.messages.length - 1].timestamp).getTime()
+        : start;
+      return sum + Math.max(lastMessageTime - start, 0);
+    }, 0);
+
+    const avgMs = totalDuration / resolvedCases.length;
+    const hours = avgMs / (1000 * 60 * 60);
+    return `${hours < 1 ? (hours * 60).toFixed(0) + ' min' : hours.toFixed(1) + ' h'}`;
+  })();
+
+  const resolutionRate = stats.total ? Math.round((stats.resolved / stats.total) * 100) : 0;
+
+  const getDailyActivity = () => {
+    const today = new Date();
+    const dayBuckets: Record<string, number> = {};
+
+    cases.forEach((c) => {
+      const dayKey = new Date(c.timestamp).toISOString().split('T')[0];
+      dayBuckets[dayKey] = (dayBuckets[dayKey] ?? 0) + 1;
+    });
+
+    const days = Array.from({ length: 7 }, (_, idx) => {
+      const day = new Date(today);
+      day.setDate(today.getDate() - (6 - idx));
+      const dayKey = day.toISOString().split('T')[0];
+      return {
+        label: day.toLocaleDateString('en-US', { weekday: 'short' }),
+        date: dayKey,
+        count: dayBuckets[dayKey] ?? 0,
+      };
+    });
+
+    return days;
+  };
+
+  const dailyActivity = getDailyActivity();
+  const maxDailyCount = Math.max(...dailyActivity.map((d) => d.count), 1);
+  const activityPoints = dailyActivity
+    .map((d, idx) => {
+      const x = (idx / (dailyActivity.length - 1 || 1)) * 100;
+      const y = 100 - (d.count / maxDailyCount) * 100;
+      return `${x},${Number.isFinite(y) ? y : 100}`;
+    })
+    .join(' ');
 
   // Filter and sort cases
   const filteredCases = cases
@@ -213,7 +269,29 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Statistics Cards */}
+        {/* Tabs */}
+        <div className="mb-6 flex flex-wrap gap-3">
+          {[
+            { id: 'overview', label: 'Overview' },
+            { id: 'cases', label: 'Cases' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as 'overview' | 'cases')}
+              className={`rounded-full px-5 py-2 text-sm font-medium transition ${
+                activeTab === tab.id
+                  ? 'bg-indigo-600 text-white shadow'
+                  : 'bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'overview' && (
+          <>
+            {/* Statistics Cards */}
         <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-4">
           <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div className="flex items-center justify-between">
@@ -328,6 +406,81 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* Analytics */}
+        <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800 lg:col-span-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Case Volume</p>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Last 7 Days</h2>
+              </div>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                Peak: {maxDailyCount} {maxDailyCount === 1 ? 'case' : 'cases'}
+              </span>
+            </div>
+            <div className="mt-6">
+              <svg viewBox="0 0 100 60" className="h-32 w-full stroke-blue-500" preserveAspectRatio="none">
+                <polyline
+                  fill="none"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  points={activityPoints}
+                />
+                <polygon
+                  points={`${activityPoints} 100,100 0,100`}
+                  fill="url(#gradient)"
+                  className="opacity-20"
+                />
+                <defs>
+                  <linearGradient id="gradient" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div className="mt-4 grid grid-cols-7 gap-2 text-center text-xs text-gray-500 dark:text-gray-400">
+                {dailyActivity.map((day) => (
+                  <div key={day.date}>
+                    <div className="font-medium text-gray-900 dark:text-gray-100">{day.count}</div>
+                    <div>{day.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Performance</p>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Agent Insights</h2>
+            <div className="mt-6 flex flex-col gap-4">
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Resolution Rate</p>
+                <p className="text-2xl font-semibold text-gray-900 dark:text-white">{resolutionRate}%</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {stats.resolved} of {stats.total || 0} cases resolved
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Avg. Resolution Time</p>
+                <p className="text-2xl font-semibold text-gray-900 dark:text-white">{averageResolutionTimeHours}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Based on last {resolvedCases.length} resolved cases</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Avg. Messages per Case</p>
+                <p className="text-2xl font-semibold text-gray-900 dark:text-white">{averageMessagesPerCase}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {totalMessages} total messages in {stats.total || 0} cases
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+          </>
+        )}
+
+        {activeTab === 'cases' && (
+          <>
         {/* Filters and Search */}
         <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -530,6 +683,8 @@ export default function AdminDashboard() {
         <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
           Showing {filteredCases.length} of {cases.length} cases
         </div>
+          </>
+        )}
       </div>
     </div>
   );

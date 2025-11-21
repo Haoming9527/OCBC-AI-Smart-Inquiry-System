@@ -5,9 +5,19 @@ import { getSentimentEmoji, getSentimentColor } from '../../lib/sentiment-utils'
 
 interface MessageBubbleProps {
   message: Message;
+  speechSupported?: boolean;
+  isSpeaking?: boolean;
+  isSpeechPaused?: boolean;
+  onToggleSpeak?: () => void;
 }
 
-export default function MessageBubble({ message }: MessageBubbleProps) {
+export default function MessageBubble({
+  message,
+  speechSupported = false,
+  isSpeaking = false,
+  isSpeechPaused = false,
+  onToggleSpeak,
+}: MessageBubbleProps) {
   const isUser = message.sender === 'user';
   const timeString = message.timestamp.toLocaleTimeString('en-US', {
     hour: '2-digit',
@@ -76,7 +86,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
             {message.text}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className={`flex items-center gap-2 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
           <span className="text-xs text-gray-500 dark:text-gray-400">
             {timeString}
           </span>
@@ -87,6 +97,36 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
             >
               {getSentimentEmoji(message.sentiment.label)} {message.sentiment.label}
             </span>
+          )}
+          {!isUser && speechSupported && (
+            <button
+              type="button"
+              onClick={onToggleSpeak}
+              className="inline-flex items-center gap-1 rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-600 transition hover:border-blue-400 hover:text-blue-600 dark:border-gray-600 dark:text-gray-200 dark:hover:border-blue-400 dark:hover:text-blue-200"
+            >
+              <svg
+                className="h-3.5 w-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d={
+                    isSpeaking
+                      ? isSpeechPaused
+                        ? 'M12 5v14M5 12h14'
+                        : 'M10 9v6m4-6v6'
+                      : 'M8 5v14l11-7z'
+                  }
+                />
+              </svg>
+              <span>
+                {isSpeaking ? (isSpeechPaused ? 'Resume voice' : 'Pause voice') : 'Play voice'}
+              </span>
+            </button>
           )}
         </div>
       </div>

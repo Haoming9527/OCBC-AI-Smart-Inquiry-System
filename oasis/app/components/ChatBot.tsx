@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useRef, useEffect, ChangeEvent } from 'react';
+import { useState, useRef, useEffect, ChangeEvent, useCallback } from 'react';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
 import EscalationQR from './EscalationQR';
 import BankingGuide from './BankingGuide';
-import SelfServiceLinks from './SelfServiceLinks';
 import ChatHistory from './ChatHistory';
 import HelpModal from './HelpModal';
 import { detectBankingQuery, BankingGuide as BankingGuideType, SelfServiceLink } from '../lib/banking-knowledge';
@@ -29,6 +28,41 @@ export interface Message {
   sentiment?: SentimentAnalysis;
   attachments?: MessageAttachment[];
 }
+
+const uiText = {
+  en: {
+    languageLabel: 'Language',
+    welcome: "Hello! I'm your OCBC AI Smart Inquiry System (OASIS) assistant. How can I help you today?",
+    needHelp: 'Need Help?',
+    shareContactTitle: 'Share contact details (optional)',
+    shareContactNote: "We'll only use this if a human specialist needs to follow up.",
+    emailLabel: 'Email',
+    phoneLabel: 'SMS / Phone',
+    manualEscalate: 'Need human assistance? Click here',
+    escalatedCopy: 'Case escalated - QR code displayed above',
+    placeholder: 'Type your message here...',
+    languageOptions: {
+      en: 'English',
+      zh: '中文',
+    },
+  },
+  zh: {
+    languageLabel: '语言',
+    welcome: '您好！我是 OCBC 智慧咨询系统 (OASIS) 助理。我可以为您做些什么？',
+    needHelp: '需要帮助吗？',
+    shareContactTitle: '分享联系方式（可选）',
+    shareContactNote: '仅在需要人工专员跟进时才会联系您。',
+    emailLabel: '电子邮箱',
+    phoneLabel: '手机 / 短信',
+    manualEscalate: '需要人工协助？请点击这里',
+    escalatedCopy: '已升级处理 - 二维码已显示在上方',
+    placeholder: '请输入您的问题…',
+    languageOptions: {
+      en: 'English',
+      zh: '中文',
+    },
+  },
+};
 
 // Escalation detection logic
 function shouldEscalate(botResponse: string, userMessage: string, userSentiment?: SentimentAnalysis): boolean {
@@ -84,7 +118,7 @@ export default function ChatBot() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: 'Hello! I\'m your OCBC AI Smart Inquiry System (OASIS) assistant. How can I help you today?',
+      text: uiText.en.welcome,
       sender: 'bot',
       timestamp: new Date(),
     },
@@ -100,10 +134,95 @@ export default function ChatBot() {
   const [showHelp, setShowHelp] = useState(false);
   const [contactEmail, setContactEmail] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [language, setLanguage] = useState<'en' | 'zh'>('en');
+  const [languageInitialized, setLanguageInitialized] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+  const [isSpeechPaused, setIsSpeechPaused] = useState(false);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const speechUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const sessionSetupRef = useRef(false);
+  const t = uiText[language];
+
+
+  const saveMessageToHistory = useCallback(
+    async (
+      sessionId: string,
+      userId: string,
+      sender: 'user' | 'bot',
+      text: string,
+      attachments?: MessageAttachment[]
+    ) => {
+      try {
+        await fetch('/api/chat/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId,
+            userId,
+            sender,
+            text,
+            attachments:
+              attachments?.map((attachment) => ({
+                id: attachment.id,
+                fileName: attachment.fileName,
+                mimeType: attachment.mimeType,
+                fileSize: attachment.fileSize,
+                data: attachment.data,
+              })) || [],
+          }),
+        });
+      } catch (error) {
+        console.error('Error saving message:', error);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const synthAvailable = 'speechSynthesis' in window;
+    setSpeechSupported(synthAvailable);
+
+    if (synthAvailable) {
+      const loadVoices = () => {
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length) {
+          setAvailableVoices(voices);
+        }
+      };
+      loadVoices();
+      window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
+
+      return () => {
+        window.speechSynthesis.removeEventListener('voiceschanged', loadVoices);
+        window.speechSynthesis.cancel();
+      };
+    }
+
+    return;
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const storedLang = localStorage.getItem('chat_language');
+    if (storedLang === 'zh' || storedLang === 'en') {
+      setLanguage(storedLang);
+    } else {
+      const browserLang = navigator.language?.toLowerCase().startsWith('zh') ? 'zh' : 'en';
+      setLanguage(browserLang as 'en' | 'zh');
+      localStorage.setItem('chat_language', browserLang);
+    }
+    setLanguageInitialized(true);
+  }, []);
 
   // Initialize user ID and session
   useEffect(() => {
+    if (!languageInitialized || sessionSetupRef.current) return;
+    sessionSetupRef.current = true;
     // Get or create user ID
     let storedUserId = localStorage.getItem('chat_user_id');
     if (!storedUserId) {
@@ -124,14 +243,14 @@ export default function ChatBot() {
         if (data.session) {
           setCurrentSessionId(data.session.id);
           // Save initial bot message
-          await saveMessageToHistory(data.session.id, storedUserId!, 'bot', messages[0].text, []);
+          await saveMessageToHistory(data.session.id, storedUserId!, 'bot', uiText[language].welcome, []);
         }
       } catch (error) {
         console.error('Error creating session:', error);
       }
     };
     createSession();
-  }, []);
+  }, [languageInitialized, language, saveMessageToHistory]);
 
   // Load stored contact preferences
   useEffect(() => {
@@ -147,38 +266,6 @@ export default function ChatBot() {
     localStorage.setItem('chat_contact_email', contactEmail);
     localStorage.setItem('chat_contact_phone', contactPhone);
   }, [contactEmail, contactPhone]);
-
-  // Save message to history
-  const saveMessageToHistory = async (
-    sessionId: string,
-    userId: string,
-    sender: 'user' | 'bot',
-    text: string,
-    attachments?: MessageAttachment[]
-  ) => {
-    try {
-      await fetch('/api/chat/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          userId,
-          sender,
-          text,
-          attachments:
-            attachments?.map((attachment) => ({
-              id: attachment.id,
-              fileName: attachment.fileName,
-              mimeType: attachment.mimeType,
-              fileSize: attachment.fileSize,
-              data: attachment.data,
-            })) || [],
-        }),
-      });
-    } catch (error) {
-      console.error('Error saving message:', error);
-    }
-  };
 
   const mapApiMessageToClient = (msg: any): Message => {
     const attachments = Array.isArray(msg.attachments)
@@ -241,6 +328,65 @@ export default function ChatBot() {
     scrollToBottom();
   }, [messages, isTyping]);
 
+  useEffect(() => {
+    setMessages((prev) => {
+      if (prev.length === 1 && prev[0].sender === 'bot' && prev[0].id === '1') {
+        return [
+          {
+            ...prev[0],
+            text: uiText[language].welcome,
+          },
+        ];
+      }
+      return prev;
+    });
+  }, [language]);
+
+  const handleToggleSpeak = (message: Message) => {
+    if (!speechSupported || typeof window === 'undefined' || message.sender !== 'bot') {
+      return;
+    }
+
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+
+    if (speakingMessageId === message.id) {
+      if (isSpeechPaused) {
+        synth.resume();
+        setIsSpeechPaused(false);
+      } else {
+        synth.pause();
+        setIsSpeechPaused(true);
+      }
+      return;
+    }
+
+    synth.cancel();
+    const utterance = new SpeechSynthesisUtterance(message.text);
+    const langCode = language === 'zh' ? 'zh-CN' : 'en-US';
+    utterance.lang = langCode;
+    const matchedVoice =
+      availableVoices.find((voice) => voice.lang?.toLowerCase().startsWith(langCode.toLowerCase())) ||
+      availableVoices.find((voice) => voice.lang?.toLowerCase().startsWith(langCode.slice(0, 2).toLowerCase()));
+    if (matchedVoice) {
+      utterance.voice = matchedVoice;
+    }
+    utterance.rate = language === 'zh' ? 1 : 1;
+    utterance.pitch = 1;
+    utterance.onend = () => {
+      setSpeakingMessageId((prev) => (prev === message.id ? null : prev));
+      setIsSpeechPaused(false);
+    };
+    utterance.onerror = () => {
+      setSpeakingMessageId((prev) => (prev === message.id ? null : prev));
+      setIsSpeechPaused(false);
+    };
+    speechUtteranceRef.current = utterance;
+    setSpeakingMessageId(message.id);
+    setIsSpeechPaused(false);
+    synth.speak(utterance);
+  };
+
   const handleSendMessage = async (text: string, files: File[] = []) => {
     const trimmedText = text.trim();
     if (!trimmedText && files.length === 0) return;
@@ -279,6 +425,7 @@ export default function ChatBot() {
           'Content-Type': 'application/json',
         },
           body: JSON.stringify({
+            language,
             messages: [...messages, { ...userMessage, text: llmText }],
           }),
       });
@@ -326,6 +473,7 @@ export default function ChatBot() {
               reason: 'Bot unable to handle customer enquiry',
               contactEmail: sanitizedEmail,
               contactPhone: sanitizedPhone,
+              language,
             }),
           });
 
@@ -336,13 +484,18 @@ export default function ChatBot() {
             setShowEscalation(true);
             
             // Add escalation message
-            const escalationMessage: Message = {
-              id: (Date.now() + 2).toString(),
-              text:
-                'I understand this requires additional assistance. I\'ve created a case and generated a QR code for you. Please scan it to transfer your enquiry to our support team.' +
+            const escalationText = language === 'zh'
+              ? `我理解此问题需要进一步协助。我已为您建立一个案例并生成二维码，请扫描以将咨询转给我们的支持团队。${
+                  sanitizedEmail || sanitizedPhone ? ' 我们也会使用您提供的联系方式与您联系。' : ''
+                }`
+              : "I understand this requires additional assistance. I've created a case and generated a QR code for you. Please scan it to transfer your enquiry to our support team." +
                 (sanitizedEmail || sanitizedPhone
                   ? ' We will also reach out using the contact details you provided.'
-                  : ''),
+                  : '');
+
+            const escalationMessage: Message = {
+              id: (Date.now() + 2).toString(),
+              text: escalationText,
               sender: 'bot',
               timestamp: new Date(),
             };
@@ -453,25 +606,47 @@ export default function ChatBot() {
             </p>
           </div>
         </div>
-        <button
-          onClick={() => setShowHelp(true)}
-          className="inline-flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 dark:bg-red-500 dark:hover:bg-red-600"
-        >
-          <span>Need Help?</span>
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 text-sm dark:border-gray-600 dark:bg-gray-800">
+            <label className="text-gray-600 dark:text-gray-300" htmlFor="language-select">
+              {t.languageLabel}
+            </label>
+            <select
+              id="language-select"
+              value={language}
+              onChange={(e) => {
+                const value = e.target.value === 'zh' ? 'zh' : 'en';
+                setLanguage(value);
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('chat_language', value);
+                }
+              }}
+              className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+            >
+              <option value="en">{t.languageOptions.en}</option>
+              <option value="zh">{t.languageOptions.zh}</option>
+            </select>
+          </div>
+          <button
+            onClick={() => setShowHelp(true)}
+            className="inline-flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 dark:bg-red-500 dark:hover:bg-red-600"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
-        </button>
+            <span>{t.needHelp}</span>
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Viewing Session Overlay */}
@@ -519,12 +694,15 @@ export default function ChatBot() {
               <div className="mx-auto max-w-3xl space-y-4">
                 {viewingSessionMessages.map((message) => (
                   <div key={message.id} className="space-y-2">
-                    <MessageBubble message={message} />
+                    <MessageBubble
+                      message={message}
+                      speechSupported={speechSupported}
+                      isSpeaking={speakingMessageId === message.id}
+                      isSpeechPaused={speakingMessageId === message.id && isSpeechPaused}
+                      onToggleSpeak={() => handleToggleSpeak(message)}
+                    />
                     {message.sender === 'bot' && message.guide && (
                       <BankingGuide guide={message.guide} />
-                    )}
-                    {message.sender === 'bot' && message.links && message.links.length > 0 && (
-                      <SelfServiceLinks links={message.links} />
                     )}
                   </div>
                 ))}
@@ -555,12 +733,15 @@ export default function ChatBot() {
         <div className="mx-auto max-w-3xl space-y-4">
           {messages.map((message) => (
             <div key={message.id} className="space-y-2">
-              <MessageBubble message={message} />
+              <MessageBubble
+                message={message}
+                speechSupported={speechSupported}
+                isSpeaking={speakingMessageId === message.id}
+                isSpeechPaused={speakingMessageId === message.id && isSpeechPaused}
+                onToggleSpeak={() => handleToggleSpeak(message)}
+              />
               {message.sender === 'bot' && message.guide && (
                 <BankingGuide guide={message.guide} />
-              )}
-              {message.sender === 'bot' && message.links && message.links.length > 0 && (
-                <SelfServiceLinks links={message.links} />
               )}
             </div>
           ))}
@@ -586,15 +767,15 @@ export default function ChatBot() {
         <div className="mx-auto max-w-3xl">
           <div className="mb-4 rounded-2xl border border-blue-100 bg-blue-50/70 p-4 text-sm text-blue-900 dark:border-blue-900/40 dark:bg-blue-900/10 dark:text-blue-100">
             <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <p className="font-semibold">Share contact details (optional)</p>
+              <p className="font-semibold">{t.shareContactTitle}</p>
               <span className="text-xs text-blue-700 dark:text-blue-200">
-                We&apos;ll only use this if a human specialist needs to follow up.
+                {t.shareContactNote}
               </span>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-xs font-medium text-blue-800 dark:text-blue-200">
-                  Email
+                  {t.emailLabel}
                 </label>
                 <input
                   type="email"
@@ -606,7 +787,7 @@ export default function ChatBot() {
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-blue-800 dark:text-blue-200">
-                  SMS / Phone
+                  {t.phoneLabel}
                 </label>
                 <input
                   type="tel"
@@ -646,11 +827,15 @@ export default function ChatBot() {
                       
                       const escalationMessage: Message = {
                         id: Date.now().toString(),
-                        text:
-                          'I\'ve created a case and generated a case reference for you. Please scan the QR code to share the details with our support team.' +
-                          (sanitizeEmail || sanitizePhone
-                            ? ' We will also reach out using your provided contact details.'
-                            : ''),
+                          text:
+                            (language === 'zh'
+                              ? '我已为您创建一个案例并生成案例编号，请扫描二维码以便我们支持团队获取详情。'
+                              : "I've created a case and generated a case reference for you. Please scan the QR code to share the details with our support team.") +
+                            (sanitizeEmail || sanitizePhone
+                              ? language === 'zh'
+                                ? ' 我们也会使用您提供的联系方式与您联系。'
+                                : ' We will also reach out using your provided contact details.'
+                              : ''),
                         sender: 'bot',
                         timestamp: new Date(),
                       };
@@ -662,16 +847,20 @@ export default function ChatBot() {
                 }}
                 className="text-sm text-blue-600 hover:underline dark:text-blue-400"
               >
-                Need human assistance? Click here
+                {t.manualEscalate}
               </button>
             )}
             {showEscalation && (
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Case escalated - QR code displayed above
+                {t.escalatedCopy}
               </p>
             )}
           </div>
-          <ChatInput onSendMessage={handleSendMessage} />
+          <ChatInput
+            onSendMessage={handleSendMessage}
+            placeholder={t.placeholder}
+            language={language}
+          />
         </div>
       </div>
     </div>

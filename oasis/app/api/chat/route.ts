@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { messages } = await request.json();
+    const { messages, language = 'en' } = await request.json();
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json(
@@ -11,8 +11,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const languageDescriptor = language === 'zh' ? 'Simplified Chinese' : 'English';
+
     // Banking system prompt with detailed descriptions
-    const bankingSystemPrompt = `You are an AI assistant for OCBC Bank's AI Smart Inquiry System (OASIS). Your role is to help customers with banking enquiries in a friendly, professional, and helpful manner.
+    const bankingSystemPrompt = `You are an AI assistant for OCBC Bank's AI Smart Inquiry System (OASIS). Your role is to help customers with banking enquiries in a friendly, professional, and helpful manner. Always respond in ${languageDescriptor} unless the user explicitly requests another language.
 
 ABOUT OCBC BANK:
 - OCBC Bank is one of the largest and most established banks in Singapore
@@ -83,6 +85,9 @@ Always provide comprehensive, helpful responses that empower customers to take a
         model: model,
         messages: formattedMessages,
         stream: false, // Set to true if you want streaming responses
+        options: {
+          temperature: 0.4,
+        },
       }),
     });
 
