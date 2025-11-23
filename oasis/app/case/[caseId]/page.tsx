@@ -62,7 +62,7 @@ export default function CaseDetailsPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
-          <div className="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
+          <div className="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-[#E11A27] border-r-transparent"></div>
           <p className="text-gray-600 dark:text-gray-400">Loading case details...</p>
         </div>
       </div>
@@ -87,7 +87,7 @@ export default function CaseDetailsPage() {
   const formattedDate = new Date(caseData.timestamp).toLocaleString();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
       <div className="mx-auto max-w-4xl px-4 py-8">
         {/* Header */}
         <div className="mb-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
@@ -107,7 +107,7 @@ export default function CaseDetailsPage() {
                     ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
                     : caseData.status === 'resolved'
                     ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                    : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                    : 'bg-red-100 text-[#E11A27] dark:bg-red-900/30 dark:text-red-400'
                 }`}
               >
                 {caseData.status.toUpperCase()}
@@ -130,17 +130,17 @@ export default function CaseDetailsPage() {
               </div>
             )}
             {(caseData.contactEmail || caseData.contactPhone) && (
-              <div className="md:col-span-2 rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
-                <p className="text-xs font-semibold text-blue-900 dark:text-blue-200">
+              <div className="md:col-span-2 rounded-lg bg-red-50 p-4 dark:bg-red-900/20">
+                <p className="text-xs font-semibold text-[#E11A27] dark:text-red-200">
                   Customer Contact Preferences
                 </p>
-                <div className="mt-2 space-y-1 text-sm text-blue-900 dark:text-blue-100">
+                <div className="mt-2 space-y-1 text-sm text-gray-900 dark:text-gray-100">
                   {caseData.contactEmail && (
                     <p>
                       Email:{' '}
                       <a
                         href={`mailto:${caseData.contactEmail}`}
-                        className="underline"
+                        className="text-[#E11A27] hover:underline dark:text-red-400"
                       >
                         {caseData.contactEmail}
                       </a>
@@ -150,7 +150,7 @@ export default function CaseDetailsPage() {
                     <p>SMS / Phone: {caseData.contactPhone}</p>
                   )}
                   {!caseData.contactEmail && !caseData.contactPhone && (
-                    <p className="text-blue-700 dark:text-blue-200">
+                    <p className="text-gray-700 dark:text-gray-200">
                       No contact details provided.
                     </p>
                   )}
@@ -195,7 +195,7 @@ export default function CaseDetailsPage() {
                   <div
                     className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
                       isUser
-                        ? 'bg-blue-600 text-white'
+                        ? 'bg-[#E11A27] text-white'
                         : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
                     }`}
                   >
@@ -237,7 +237,7 @@ export default function CaseDetailsPage() {
                     <div
                       className={`rounded-2xl px-4 py-3 shadow-sm ${
                         isUser
-                          ? 'bg-blue-600 text-white'
+                          ? 'bg-[#E11A27] text-white'
                           : 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
                       }`}
                     >
@@ -281,7 +281,7 @@ export default function CaseDetailsPage() {
           </a>
           <button
             onClick={() => window.print()}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            className="rounded-lg bg-[#E11A27] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#C41622]"
           >
             Print Case
           </button>
