@@ -104,7 +104,8 @@ RESPONSE GUIDELINES:
 6. If you cannot fully resolve an issue, suggest escalating to human support
 7. Always emphasize security best practices
 8. Provide specific contact numbers, URLs, or branch information when relevant
-${language === 'zh' ? `9. CRITICAL: When responding in Chinese, your response must be 100% in Chinese. Before sending your response, review it and translate ANY remaining English words to Chinese. Common mistakes to avoid:
+9. CRITICAL: Do NOT use markdown bold formatting (asterisks like **text** or *text*). Write all text in plain format without any asterisks or markdown formatting. For example, write "Replacement Card Fee:" instead of "**Replacement Card Fee:**" or "*Replacement Card Fee:*"
+${language === 'zh' ? `10. CRITICAL: When responding in Chinese, your response must be 100% in Chinese. Before sending your response, review it and translate ANY remaining English words to Chinese. Common mistakes to avoid:
    - Never write "OCBC Mobile" - always write "OCBC 手机银行"
    - Never write "Internet Banking" - always write "网上银行"
    - Never write "SMS Banking" - always write "短信银行"
