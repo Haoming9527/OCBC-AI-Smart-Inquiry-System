@@ -16,6 +16,52 @@ export async function POST(request: NextRequest) {
     // Banking system prompt with detailed descriptions
     const bankingSystemPrompt = `You are an AI assistant for OCBC Bank's AI Smart Inquiry System (OASIS). Your role is to help customers with banking enquiries in a friendly, professional, and helpful manner. Always respond in ${languageDescriptor} unless the user explicitly requests another language.
 
+${language === 'zh' ? `CRITICAL TRANSLATION REQUIREMENT - READ CAREFULLY:
+When responding in Chinese, you MUST translate EVERY English word and phrase to Chinese. DO NOT leave any English words in your response except for:
+- Phone numbers (e.g., 1800 363 3333, +65 6363 3333)
+- URLs and website addresses
+- Specific codes (e.g., 72327)
+- The bank name "OCBC" (but translate "OCBC Bank" to "OCBC 银行")
+
+MANDATORY TRANSLATIONS - Use these exact translations:
+- "OCBC Mobile" → "OCBC 手机银行" (NEVER write "OCBC Mobile" in Chinese responses)
+- "Mobile Banking" → "手机银行"
+- "Internet Banking" → "网上银行" (NEVER write "Internet Banking" in Chinese responses)
+- "SMS Banking" → "短信银行" (NEVER write "SMS Banking" in Chinese responses)
+- "SMS" → "短信"
+- "ATM" → "自动提款机" or "ATM机"
+- "Phone Banking" → "电话银行"
+- "Customer Service" → "客户服务"
+- "Hotline" → "热线"
+- "Branch" → "分行"
+- "Password" → "密码"
+- "Two-step verification" → "两步验证"
+- "QR code" → "二维码"
+- "persists" → "持续" or "仍然存在"
+- "account" → "账户" or "户口"
+- "login" → "登录"
+- "reset password" → "重置密码"
+- "forgot password" → "忘记密码"
+- "browser cache" → "浏览器缓存"
+- "network connection" → "网络连接"
+- "security settings" → "安全设置"
+- "contact" → "联系"
+- "human support" → "人工支持"
+
+BAD EXAMPLES (DO NOT DO THIS):
+❌ "使用 OCBC Mobile 进行登录" 
+❌ "使用 SMS Banking 进行登录"
+❌ "如果问题 persists"
+❌ "联系我们的 Customer Service"
+
+GOOD EXAMPLES (DO THIS):
+✅ "使用 OCBC 手机银行进行登录"
+✅ "使用短信银行进行登录"
+✅ "如果问题仍然存在"
+✅ "联系我们的客户服务"
+
+Remember: Your entire response must be in Chinese. If you find yourself writing English words, translate them immediately.` : ''}
+
 ABOUT OCBC BANK:
 - OCBC Bank is one of the largest and most established banks in Singapore
 - Founded in 1932, serving customers for over 90 years
@@ -48,6 +94,12 @@ RESPONSE GUIDELINES:
 6. If you cannot fully resolve an issue, suggest escalating to human support
 7. Always emphasize security best practices
 8. Provide specific contact numbers, URLs, or branch information when relevant
+${language === 'zh' ? `9. CRITICAL: When responding in Chinese, your response must be 100% in Chinese. Before sending your response, review it and translate ANY remaining English words to Chinese. Common mistakes to avoid:
+   - Never write "OCBC Mobile" - always write "OCBC 手机银行"
+   - Never write "Internet Banking" - always write "网上银行"
+   - Never write "SMS Banking" - always write "短信银行"
+   - Never write English verbs like "persists", "contact", "login" - translate them all
+   - If you catch yourself writing English, stop and translate it immediately` : ''}
 
 COMMON QUERIES - DETAILED RESPONSES:
 - Balance Checks: Explain multiple methods (Mobile Banking, Internet Banking, ATM, SMS, Phone Banking) with specific instructions
@@ -129,6 +181,40 @@ Always provide comprehensive, helpful responses that empower customers to take a
           // Skip invalid JSON lines
           console.warn('Failed to parse line:', line);
         }
+      }
+    }
+    
+    // Post-process Chinese responses to replace common English terms
+    if (language === 'zh' && fullResponse) {
+      const translations: { [key: string]: string } = {
+        'OCBC Mobile': 'OCBC 手机银行',
+        'Mobile Banking': '手机银行',
+        'Internet Banking': '网上银行',
+        'SMS Banking': '短信银行',
+        'SMS': '短信',
+        'Phone Banking': '电话银行',
+        'Customer Service': '客户服务',
+        'Hotline': '热线',
+        'Branch': '分行',
+        'Password': '密码',
+        'Two-step verification': '两步验证',
+        'QR code': '二维码',
+        'persists': '仍然存在',
+        'contact': '联系',
+        'human support': '人工支持',
+        'reset password': '重置密码',
+        'forgot password': '忘记密码',
+        'browser cache': '浏览器缓存',
+        'network connection': '网络连接',
+        'security settings': '安全设置',
+      };
+      
+      // Replace English terms with Chinese translations
+      // Use word boundaries to avoid partial matches
+      for (const [english, chinese] of Object.entries(translations)) {
+        // Create regex with word boundaries, case insensitive
+        const regex = new RegExp(`\\b${english.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+        fullResponse = fullResponse.replace(regex, chinese);
       }
     }
     
