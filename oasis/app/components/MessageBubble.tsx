@@ -32,9 +32,9 @@ export default function MessageBubble({
     >
       {/* Avatar */}
       <div
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full shadow-sm ${
           isUser
-            ? 'bg-blue-600 text-white'
+            ? 'bg-[#E11A27] text-white'
             : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
         }`}
       >
@@ -76,10 +76,10 @@ export default function MessageBubble({
         }`}
       >
         <div
-          className={`rounded-2xl px-4 py-3 shadow-sm ${
+          className={`rounded-2xl px-4 py-3 shadow-md ${
             isUser
-              ? 'bg-blue-600 text-white'
-              : 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100'
+              ? 'bg-[#E11A27] text-white'
+              : 'bg-white text-gray-900 border border-gray-100 dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600'
           }`}
         >
           <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
@@ -102,7 +102,7 @@ export default function MessageBubble({
             <button
               type="button"
               onClick={onToggleSpeak}
-              className="inline-flex items-center gap-1 rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-600 transition hover:border-blue-400 hover:text-blue-600 dark:border-gray-600 dark:text-gray-200 dark:hover:border-blue-400 dark:hover:text-blue-200"
+              className="inline-flex items-center gap-1 rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-600 transition hover:border-[#E11A27] hover:text-[#E11A27] dark:border-gray-600 dark:text-gray-200 dark:hover:border-[#E11A27] dark:hover:text-[#F02A37]"
             >
               <svg
                 className="h-3.5 w-3.5"

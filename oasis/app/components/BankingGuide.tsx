@@ -8,22 +8,22 @@ interface BankingGuideProps {
 
 export default function BankingGuideComponent({ guide }: BankingGuideProps) {
   return (
-    <div className="my-4 rounded-lg border border-blue-200 bg-blue-50 p-5 dark:border-blue-800 dark:bg-blue-900/20">
-      <h3 className="mb-2 text-lg font-semibold text-blue-900 dark:text-blue-100">
+    <div className="my-4 rounded-lg border border-[#FFE5E7] bg-[#FFE5E7]/50 p-5 shadow-sm dark:border-[#E11A27]/40 dark:bg-[#E11A27]/10">
+      <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
         📋 {guide.title}
       </h3>
       {guide.description && (
-        <p className="mb-4 text-sm text-blue-700 dark:text-blue-300">
+        <p className="mb-4 text-sm text-gray-700 dark:text-gray-300">
           {guide.description}
         </p>
       )}
       <div className="mb-4 space-y-2.5">
         {guide.steps.map((step, index) => (
           <div key={index} className="flex items-start gap-3">
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#E11A27] text-xs font-semibold text-white shadow-sm">
               {index + 1}
             </div>
-            <p className="flex-1 text-sm leading-relaxed text-blue-800 dark:text-blue-200">
+            <p className="flex-1 text-sm leading-relaxed text-gray-800 dark:text-gray-200">
               {step}
             </p>
           </div>
@@ -45,8 +45,8 @@ export default function BankingGuideComponent({ guide }: BankingGuideProps) {
         </div>
       )}
       {guide.links && guide.links.length > 0 && (
-        <div className="mt-4 border-t border-blue-200 pt-4 dark:border-blue-800">
-          <p className="mb-2 text-xs font-semibold text-blue-700 dark:text-blue-300">
+        <div className="mt-4 border-t border-[#FFE5E7] pt-4 dark:border-[#E11A27]/40">
+          <p className="mb-2 text-xs font-semibold text-gray-700 dark:text-gray-300">
             🔗 Useful Links:
           </p>
           <div className="flex flex-wrap gap-2">
@@ -56,7 +56,7 @@ export default function BankingGuideComponent({ guide }: BankingGuideProps) {
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700"
+                className="rounded-md bg-[#E11A27] px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-[#C41622] hover:shadow-md active:scale-95"
               >
                 {link.text} →
               </a>

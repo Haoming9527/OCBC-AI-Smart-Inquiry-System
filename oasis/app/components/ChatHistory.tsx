@@ -28,6 +28,8 @@ export default function ChatHistory({ userId, onClose, onLoadSession, onViewSess
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState('');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchSessions();
@@ -98,6 +100,63 @@ export default function ChatHistory({ userId, onClose, onLoadSession, onViewSess
     } catch (error) {
       console.error('Error deleting session:', error);
     }
+  };
+
+  const handleMultiDelete = async () => {
+    if (selectedSessions.size === 0) return;
+    
+    const count = selectedSessions.size;
+    if (!confirm(`Are you sure you want to delete ${count} conversation${count > 1 ? 's' : ''}?`)) {
+      return;
+    }
+
+    try {
+      // Delete all selected sessions
+      const deletePromises = Array.from(selectedSessions).map((sessionId) =>
+        fetch(`/api/chat/history?sessionId=${sessionId}&userId=${userId}`, {
+          method: 'DELETE',
+        })
+      );
+
+      const results = await Promise.all(deletePromises);
+      const allSuccessful = results.every((r) => r.ok);
+
+      if (allSuccessful) {
+        setSessions((prev) => prev.filter((s) => !selectedSessions.has(s.id)));
+        setSelectedSessions(new Set());
+        setSelectionMode(false);
+      } else {
+        alert('Some conversations could not be deleted. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error deleting sessions:', error);
+      alert('An error occurred while deleting conversations. Please try again.');
+    }
+  };
+
+  const toggleSelection = (sessionId: string) => {
+    setSelectedSessions((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(sessionId)) {
+        newSet.delete(sessionId);
+      } else {
+        newSet.add(sessionId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedSessions.size === sessions.length) {
+      setSelectedSessions(new Set());
+    } else {
+      setSelectedSessions(new Set(sessions.map((s) => s.id)));
+    }
+  };
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    setSelectedSessions(new Set());
   };
 
   const handleExport = async (sessionId: string, format: 'csv' | 'json') => {
@@ -199,68 +258,150 @@ export default function ChatHistory({ userId, onClose, onLoadSession, onViewSess
     <div className="fixed inset-0 z-50 flex">
       {/* Overlay (hidden on desktop so chat stays visible) */}
       <div
-        className="absolute inset-0 bg-black/40 dark:bg-black/70 md:bg-transparent md:dark:bg-transparent"
+        className="absolute inset-0 bg-black/40 dark:bg-black/70 md:bg-transparent md:dark:bg-transparent transition-opacity duration-300 ease-in-out animate-fade-in"
         onClick={onClose}
       />
 
       {/* Sidebar */}
-      <div className="relative z-10 h-full w-full max-w-md bg-white shadow-xl dark:bg-gray-800 flex flex-col">
+      <div className="relative z-10 h-full w-full max-w-md bg-white shadow-xl dark:bg-gray-800 flex flex-col animate-slide-in-left">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Chat History
-          </h2>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
-          >
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
+          <div className="flex items-center gap-3">
+            {selectionMode && (
+              <button
+                onClick={exitSelectionMode}
+                className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+                title="Cancel selection"
+              >
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            )}
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              {selectionMode
+                ? selectedSessions.size > 0
+                  ? `${selectedSessions.size} selected`
+                  : 'Select conversations'
+                : 'Chat History'}
+            </h2>
+          </div>
+          <div className="flex items-center gap-2">
+            {selectionMode ? (
+              selectedSessions.size > 0 && (
+                <button
+                  onClick={handleMultiDelete}
+                  className="rounded-lg bg-[#E11A27] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#C41622] dark:bg-[#E11A27] dark:hover:bg-[#C41622]"
+                >
+                  Delete ({selectedSessions.size})
+                </button>
+              )
+            ) : (
+              <>
+                <button
+                  onClick={() => setSelectionMode(true)}
+                  className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+                  title="Select multiple"
+                >
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                    />
+                  </svg>
+                </button>
+                <button
+                  onClick={onClose}
+                  className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+                >
+                  <svg
+                    className="h-6 w-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Search and Filters */}
-        <div className="border-b border-gray-200 p-4 dark:border-gray-700">
-          <div className="mb-3">
-            <input
-              type="text"
-              placeholder="Search conversations..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-            />
+        {!selectionMode && (
+          <div className="border-b border-gray-200 p-4 dark:border-gray-700">
+            <div className="mb-3">
+              <input
+                type="text"
+                placeholder="Search conversations..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:border-[#E11A27] focus:outline-none focus:ring-2 focus:ring-[#E11A27]/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowBookmarked(!showBookmarked)}
+                className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  showBookmarked
+                    ? 'bg-[#E11A27] text-white'
+                    : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                }`}
+              >
+                <span className="mr-2">⭐</span>
+                Bookmarks
+              </button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowBookmarked(!showBookmarked)}
-              className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                showBookmarked
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-              }`}
-            >
-              <span className="mr-2">⭐</span>
-              Bookmarks
-            </button>
+        )}
+        
+        {/* Selection Mode Header */}
+        {selectionMode && (
+          <div className="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedSessions.size === sessions.length && sessions.length > 0}
+                  onChange={toggleSelectAll}
+                  className="h-4 w-4 rounded border-gray-300 text-[#E11A27] focus:ring-[#E11A27]"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  Select All
+                </span>
+              </label>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Sessions List */}
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-solid border-[#E11A27] border-r-transparent"></div>
             </div>
           ) : sessions.length === 0 ? (
             <div className="py-12 text-center text-gray-500 dark:text-gray-400">
@@ -275,12 +416,35 @@ export default function ChatHistory({ userId, onClose, onLoadSession, onViewSess
               {sessions.map((session) => (
                 <div
                   key={session.id}
-                  className="group p-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                  className={`group p-4 transition-colors ${
+                    selectionMode
+                      ? selectedSessions.has(session.id)
+                        ? 'bg-[#FFE5E7]/50 dark:bg-[#E11A27]/10'
+                        : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                      : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                  }`}
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-2 min-w-0">
+                    {selectionMode && (
+                      <div className="flex items-center pt-1">
+                        <input
+                          type="checkbox"
+                          checked={selectedSessions.has(session.id)}
+                          onChange={() => toggleSelection(session.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="h-4 w-4 rounded border-gray-300 text-[#E11A27] focus:ring-[#E11A27]"
+                        />
+                      </div>
+                    )}
                     <div
-                      className="flex-1 cursor-pointer"
-                      onClick={() => onViewSession(session.id)}
+                      className={`flex-1 min-w-0 ${selectionMode ? '' : 'cursor-pointer'}`}
+                      onClick={() => {
+                        if (!selectionMode) {
+                          onViewSession(session.id);
+                        } else {
+                          toggleSelection(session.id);
+                        }
+                      }}
                     >
                       {editingTitle === session.id ? (
                         <div className="flex items-center gap-2">
@@ -296,19 +460,19 @@ export default function ChatHistory({ userId, onClose, onLoadSession, onViewSess
                                 setNewTitle('');
                               }
                             }}
-                            className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                            className="flex-1 min-w-0 rounded border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                             autoFocus
                           />
                           <button
                             onClick={() => handleUpdateTitle(session.id)}
-                            className="rounded px-2 py-1 text-sm text-blue-600 hover:bg-blue-50 dark:text-blue-400"
+                            className="rounded px-2 py-1 text-sm text-[#E11A27] hover:bg-[#FFE5E7] dark:text-[#F02A37] shrink-0"
                           >
                             ✓
                           </button>
                         </div>
                       ) : (
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                        <div className="min-w-0">
+                          <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">
                             {session.title ||
                               session.lastMessagePreview ||
                               'New Conversation'}
@@ -329,29 +493,8 @@ export default function ChatHistory({ userId, onClose, onLoadSession, onViewSess
                     </div>
 
                     {/* Actions */}
-                    <div className="ml-4 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onLoadSession(session.id);
-                        }}
-                        className="rounded p-1.5 text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
-                        title="Load this conversation"
-                      >
-                        <svg
-                          className="h-5 w-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                          />
-                        </svg>
-                      </button>
+                    {!selectionMode && (
+                      <div className="flex items-center gap-1 shrink-0 opacity-0 transition-opacity group-hover:opacity-100">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -445,7 +588,8 @@ export default function ChatHistory({ userId, onClose, onLoadSession, onViewSess
                           </div>
                         )}
                       </div>
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

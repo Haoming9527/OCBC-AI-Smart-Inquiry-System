@@ -223,16 +223,59 @@ export default function ChatBot() {
   useEffect(() => {
     if (!languageInitialized || sessionSetupRef.current) return;
     sessionSetupRef.current = true;
-    // Get or create user ID
-    let storedUserId = localStorage.getItem('chat_user_id');
-    if (!storedUserId) {
-      storedUserId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      localStorage.setItem('chat_user_id', storedUserId);
-    }
-    setUserId(storedUserId);
+    
+    const initializeSession = async () => {
+      // Get or create user ID
+      let storedUserId = localStorage.getItem('chat_user_id');
+      if (!storedUserId) {
+        storedUserId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        localStorage.setItem('chat_user_id', storedUserId);
+      }
+      setUserId(storedUserId);
 
-    // Create new session
-    const createSession = async () => {
+      // Check URL parameters for sessionId (for shared links)
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlSessionId = urlParams.get('sessionId');
+      
+      // Check if there's a stored session ID or URL parameter
+      const sessionIdToLoad = urlSessionId || localStorage.getItem('chat_current_session_id');
+      
+      if (sessionIdToLoad) {
+        // Try to load the session
+        try {
+          const response = await fetch(`/api/chat/history?sessionId=${sessionIdToLoad}&userId=${storedUserId}`);
+          const data = await response.json();
+          
+          if (response.ok && data.session && data.session.messages) {
+            // Load the session
+            setCurrentSessionId(sessionIdToLoad);
+            localStorage.setItem('chat_current_session_id', sessionIdToLoad);
+            const loadedMessages = data.session.messages.map(mapApiMessageToClient);
+            setMessages(loadedMessages);
+            
+            // Clean up URL parameter if it was from a shared link
+            if (urlSessionId) {
+              window.history.replaceState({}, '', window.location.pathname);
+            }
+            return; // Successfully loaded, exit early
+          } else {
+            // Session not found or invalid, clear it and create new one
+            localStorage.removeItem('chat_current_session_id');
+            if (urlSessionId) {
+              window.history.replaceState({}, '', window.location.pathname);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading session:', error);
+          // If loading fails, create a new session
+          localStorage.removeItem('chat_current_session_id');
+          if (urlSessionId) {
+            window.history.replaceState({}, '', window.location.pathname);
+          }
+        }
+      }
+
+      // Create new session if no valid stored session
       try {
         const response = await fetch('/api/chat/history', {
           method: 'POST',
@@ -241,15 +284,19 @@ export default function ChatBot() {
         });
         const data = await response.json();
         if (data.session) {
-          setCurrentSessionId(data.session.id);
-          // Save initial bot message
-          await saveMessageToHistory(data.session.id, storedUserId!, 'bot', uiText[language].welcome, []);
+          const newSessionId = data.session.id;
+          setCurrentSessionId(newSessionId);
+          localStorage.setItem('chat_current_session_id', newSessionId);
+          
+          // Save initial bot message for new session
+          await saveMessageToHistory(newSessionId, storedUserId!, 'bot', uiText[language].welcome, []);
         }
       } catch (error) {
         console.error('Error creating session:', error);
       }
     };
-    createSession();
+    
+    initializeSession();
   }, [languageInitialized, language, saveMessageToHistory]);
 
   // Load stored contact preferences
@@ -418,7 +465,7 @@ export default function ChatBot() {
     }
 
     try {
-      // Call our API route which connects to Ollama
+      // Call our API route which connects to Gemini
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -510,7 +557,7 @@ export default function ChatBot() {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         text: error instanceof Error 
-          ? `Error: ${error.message}. Please make sure Ollama is installed and running. See setup instructions in the README.`
+          ? `Error: ${error.message}. Please make sure GEMINI_API_KEY is set in .env. See setup instructions in the README.`
           : 'Sorry, there was an error processing your message. Please try again.',
         sender: 'bot',
         timestamp: new Date(),
@@ -522,7 +569,7 @@ export default function ChatBot() {
   };
 
   return (
-    <div className="flex h-screen flex-col bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800">
+    <div className="flex h-screen flex-col bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
       {/* History Sidebar */}
       {showHistory && (
         <ChatHistory
@@ -534,6 +581,7 @@ export default function ChatBot() {
               const data = await response.json();
               if (data.session) {
                 setCurrentSessionId(sessionId);
+                localStorage.setItem('chat_current_session_id', sessionId);
                 setMessages(data.session.messages.map(mapApiMessageToClient));
                 setShowHistory(false);
                 setViewingSessionId(null);
@@ -582,7 +630,7 @@ export default function ChatBot() {
               />
             </svg>
           </button>
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#E11A27] text-white shadow-md">
             <svg
               className="h-6 w-6"
               fill="none"
@@ -598,15 +646,75 @@ export default function ChatBot() {
             </svg>
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h1 className="text-lg font-bold text-gray-900 dark:text-white">
               OCBC AI Smart Inquiry System (OASIS)
             </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               AI Assistant
             </p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={async () => {
+              if (!confirm('Start a new conversation? Your current conversation will be saved.')) {
+                return;
+              }
+              
+              try {
+                // Create new session
+                const response = await fetch('/api/chat/history', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ userId }),
+                });
+                const data = await response.json();
+                
+                if (data.session) {
+                  const newSessionId = data.session.id;
+                  setCurrentSessionId(newSessionId);
+                  localStorage.setItem('chat_current_session_id', newSessionId);
+                  
+                  // Reset messages to welcome message
+                  setMessages([
+                    {
+                      id: '1',
+                      text: uiText[language].welcome,
+                      sender: 'bot',
+                      timestamp: new Date(),
+                    },
+                  ]);
+                  
+                  // Save initial bot message
+                  await saveMessageToHistory(newSessionId, userId, 'bot', uiText[language].welcome, []);
+                  
+                  // Reset escalation state
+                  setEscalatedCaseId(null);
+                  setShowEscalation(false);
+                }
+              } catch (error) {
+                console.error('Error creating new session:', error);
+                alert('Failed to start new conversation. Please try again.');
+              }
+            }}
+            className="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#E11A27]/20 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+            title="Start a new conversation"
+          >
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            <span>New Chat</span>
+          </button>
           <div className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 text-sm dark:border-gray-600 dark:bg-gray-800">
             <label className="text-gray-600 dark:text-gray-300" htmlFor="language-select">
               {t.languageLabel}
@@ -621,7 +729,7 @@ export default function ChatBot() {
                   localStorage.setItem('chat_language', value);
                 }
               }}
-              className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+              className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700 focus:border-[#E11A27] focus:outline-none focus:ring-2 focus:ring-[#E11A27]/20 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
             >
               <option value="en">{t.languageOptions.en}</option>
               <option value="zh">{t.languageOptions.zh}</option>
@@ -629,7 +737,7 @@ export default function ChatBot() {
           </div>
           <button
             onClick={() => setShowHelp(true)}
-            className="inline-flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 dark:bg-red-500 dark:hover:bg-red-600"
+            className="inline-flex items-center gap-2 rounded-full bg-[#E11A27] px-4 py-2 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#C41622] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#E11A27]/50 active:scale-95"
           >
             <span>{t.needHelp}</span>
             <svg
@@ -654,14 +762,14 @@ export default function ChatBot() {
         <div className="fixed inset-0 z-40 flex justify-end">
           {/* Soft overlay to suggest modal state without hiding chat */}
           <div
-            className="absolute inset-0 bg-black/10 dark:bg-black/40"
+            className="absolute inset-0 bg-black/10 dark:bg-black/40 transition-opacity duration-300 ease-in-out"
             aria-hidden="true"
             onClick={() => {
               setViewingSessionId(null);
               setViewingSessionMessages([]);
             }}
           />
-          <div className="relative h-full w-full max-w-4xl bg-white shadow-2xl dark:bg-gray-800 flex flex-col">
+          <div className="relative h-full w-full max-w-4xl bg-white shadow-2xl dark:bg-gray-800 flex flex-col transform transition-transform duration-300 ease-in-out animate-slide-in-right">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -712,12 +820,15 @@ export default function ChatBot() {
             <div className="border-t border-gray-200 px-6 py-4 dark:border-gray-700">
               <button
                 onClick={async () => {
-                  setCurrentSessionId(viewingSessionId);
-                  setMessages(viewingSessionMessages);
-                  setViewingSessionId(null);
-                  setViewingSessionMessages([]);
+                  if (viewingSessionId) {
+                    setCurrentSessionId(viewingSessionId);
+                    localStorage.setItem('chat_current_session_id', viewingSessionId);
+                    setMessages(viewingSessionMessages);
+                    setViewingSessionId(null);
+                    setViewingSessionMessages([]);
+                  }
                 }}
-                className="w-full rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
+                className="w-full rounded-lg bg-[#E11A27] px-4 py-2 text-white transition-colors hover:bg-[#C41622] shadow-md"
               >
                 Load This Conversation
               </button>
@@ -751,10 +862,10 @@ export default function ChatBot() {
           {isTyping && (
             <div className="flex items-center gap-2">
               <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700"></div>
-              <div className="flex gap-1 rounded-2xl bg-white px-4 py-3 shadow-sm dark:bg-gray-700">
-                <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.3s]"></div>
-                <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.15s]"></div>
-                <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400"></div>
+              <div className="flex gap-1 rounded-2xl bg-white px-4 py-3 shadow-sm dark:bg-gray-700 border border-gray-100">
+                <div className="h-2 w-2 animate-bounce rounded-full bg-[#E11A27] [animation-delay:-0.3s]"></div>
+                <div className="h-2 w-2 animate-bounce rounded-full bg-[#E11A27] [animation-delay:-0.15s]"></div>
+                <div className="h-2 w-2 animate-bounce rounded-full bg-[#E11A27]"></div>
               </div>
             </div>
           )}
@@ -765,16 +876,16 @@ export default function ChatBot() {
       {/* Input Area */}
       <div className="border-t border-gray-200 bg-white px-4 py-4 dark:border-gray-700 dark:bg-gray-800">
         <div className="mx-auto max-w-3xl">
-          <div className="mb-4 rounded-2xl border border-blue-100 bg-blue-50/70 p-4 text-sm text-blue-900 dark:border-blue-900/40 dark:bg-blue-900/10 dark:text-blue-100">
+          <div className="mb-4 rounded-2xl border border-[#FFE5E7] bg-[#FFE5E7]/70 p-4 text-sm text-gray-900 dark:border-[#E11A27]/40 dark:bg-[#E11A27]/10 dark:text-gray-100">
             <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <p className="font-semibold">{t.shareContactTitle}</p>
-              <span className="text-xs text-blue-700 dark:text-blue-200">
+              <span className="text-xs text-gray-700 dark:text-gray-200">
                 {t.shareContactNote}
               </span>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-xs font-medium text-blue-800 dark:text-blue-200">
+                <label className="mb-1 block text-xs font-medium text-gray-800 dark:text-gray-200">
                   {t.emailLabel}
                 </label>
                 <input
@@ -782,11 +893,11 @@ export default function ChatBot() {
                   value={contactEmail}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setContactEmail(e.target.value)}
                   placeholder="name@example.com"
-                  className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-50"
+                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-[#E11A27] focus:outline-none focus:ring-2 focus:ring-[#E11A27]/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-50"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-blue-800 dark:text-blue-200">
+                <label className="mb-1 block text-xs font-medium text-gray-800 dark:text-gray-200">
                   {t.phoneLabel}
                 </label>
                 <input
@@ -794,7 +905,7 @@ export default function ChatBot() {
                   value={contactPhone}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setContactPhone(e.target.value)}
                   placeholder="+65 9123 4567"
-                  className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-50"
+                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-[#E11A27] focus:outline-none focus:ring-2 focus:ring-[#E11A27]/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-50"
                 />
               </div>
             </div>
@@ -845,7 +956,7 @@ export default function ChatBot() {
                     console.error('Error escalating case:', error);
                   }
                 }}
-                className="text-sm text-blue-600 hover:underline dark:text-blue-400"
+                className="text-sm text-[#E11A27] hover:underline dark:text-[#F02A37] font-medium"
               >
                 {t.manualEscalate}
               </button>

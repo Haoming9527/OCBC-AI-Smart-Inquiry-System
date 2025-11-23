@@ -28,8 +28,8 @@ export default function HelpModal({ open, onClose }: HelpModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative z-10 m-4 w-full max-w-4xl rounded-2xl bg-white shadow-2xl dark:bg-gray-900">
+      <div className="absolute inset-0 bg-black/40 transition-opacity duration-300 ease-in-out animate-fade-in" onClick={onClose} />
+      <div className="relative z-10 m-4 w-full max-w-4xl rounded-2xl bg-white shadow-2xl dark:bg-gray-900 animate-scale-in">
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-800">
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Help &amp; Support</h2>
@@ -48,16 +48,16 @@ export default function HelpModal({ open, onClose }: HelpModalProps) {
 
         <div className="max-h-[80vh] overflow-y-auto px-6 py-6 space-y-8">
           {/* How it works */}
-          <section className="rounded-xl border border-blue-100 bg-blue-50/60 p-5 dark:border-blue-900/40 dark:bg-blue-950/20">
-            <h3 className="mb-4 text-lg font-semibold text-blue-900 dark:text-blue-100">How this chatbot works</h3>
+          <section className="rounded-xl border border-[#FFE5E7] bg-[#FFE5E7]/60 p-5 dark:border-[#E11A27]/40 dark:bg-[#E11A27]/10">
+            <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">How this chatbot works</h3>
             <div className="grid gap-4 md:grid-cols-3">
               {howItWorksSteps.map((step) => (
                 <div
                   key={step.title}
-                  className="rounded-lg border border-blue-100 bg-white/80 p-4 shadow-sm dark:border-blue-900/40 dark:bg-blue-950/40"
+                  className="rounded-lg border border-[#FFE5E7] bg-white/80 p-4 shadow-sm dark:border-[#E11A27]/40 dark:bg-[#E11A27]/20"
                 >
-                  <h4 className="mb-1 text-sm font-semibold text-blue-900 dark:text-blue-100">{step.title}</h4>
-                  <p className="text-xs text-blue-800 dark:text-blue-200">{step.description}</p>
+                  <h4 className="mb-1 text-sm font-semibold text-gray-900 dark:text-gray-100">{step.title}</h4>
+                  <p className="text-xs text-gray-700 dark:text-gray-200">{step.description}</p>
                 </div>
               ))}
             </div>
@@ -86,7 +86,7 @@ export default function HelpModal({ open, onClose }: HelpModalProps) {
                 href="https://www.ocbc.com/personal-banking/help-and-support"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-full bg-red-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 dark:bg-red-500 dark:hover:bg-red-600"
+                className="inline-flex items-center gap-2 rounded-full bg-[#E11A27] px-5 py-2 text-sm font-semibold text-white transition-all hover:bg-[#C41622] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#E11A27]/50 active:scale-95"
               >
                 Go to Help Centre
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

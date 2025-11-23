@@ -9,7 +9,6 @@ import {
   updateSessionTitle,
   deleteSession,
   generateUserId,
-  initializeDatabase,
 } from '../../../../lib/chat-history-utils';
 
 // Initialize database on first import

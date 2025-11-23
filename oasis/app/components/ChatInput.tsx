@@ -40,7 +40,7 @@ export default function ChatInput({
 
     recognition.onresult = (event: any) => {
       const transcript = Array.from(event.results)
-        .map((result) => result[0]?.transcript ?? '')
+        .map((result: any) => result[0]?.transcript ?? '')
         .join('');
       setInput(baseTextRef.current + transcript);
     };
@@ -126,7 +126,7 @@ export default function ChatInput({
           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition ${
             isRecording
               ? 'border-red-500 bg-red-50 text-red-600 dark:border-red-400 dark:bg-red-900/30 dark:text-red-200'
-              : 'border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600 dark:border-gray-500 dark:text-gray-300'
+              : 'border-gray-300 text-gray-600 hover:border-[#E11A27] hover:text-[#E11A27] dark:border-gray-500 dark:text-gray-300'
           } ${!speechSupported ? 'cursor-not-allowed opacity-50' : ''}`}
           aria-label={isRecording ? 'Stop voice input' : 'Start voice input'}
           title={speechSupported ? 'Voice input' : 'Voice input not supported'}
@@ -136,17 +136,23 @@ export default function ChatInput({
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
+            strokeWidth={2}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d={
-                isRecording
-                  ? 'M6 18L18 6M6 6l12 12'
-                  : 'M12 1v11m0 0a3 3 0 01-3-3V5a3 3 0 016 0v4a3 3 0 01-3 3zm0 0v4m-4 0h8'
-              }
-            />
+            {isRecording ? (
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            ) : (
+              <>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                />
+              </>
+            )}
           </svg>
         </button>
         <textarea
@@ -169,7 +175,7 @@ export default function ChatInput({
         <button
           onClick={handleSend}
           disabled={isSendDisabled}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-blue-600"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E11A27] text-white transition-all hover:bg-[#C41622] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-[#E11A27] active:scale-95"
           aria-label="Send message"
         >
           <svg

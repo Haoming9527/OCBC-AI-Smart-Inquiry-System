@@ -202,7 +202,7 @@ export default function AdminDashboard() {
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'open':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
+        return 'bg-[#FFE5E7] text-[#C41622] dark:bg-[#E11A27]/30 dark:text-[#F02A37]';
       case 'escalated':
         return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400';
       case 'resolved':
@@ -230,7 +230,7 @@ export default function AdminDashboard() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
-          <div className="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
+          <div className="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-[#E11A27] border-r-transparent"></div>
           <p className="text-gray-600 dark:text-gray-400">Loading cases...</p>
         </div>
       </div>
@@ -238,12 +238,12 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
       <div className="mx-auto max-w-7xl px-4 py-8">
         {/* Header */}
         <div className="mb-8 border-b border-gray-200 pb-6 dark:border-gray-700">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-indigo-600 text-white">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#E11A27] text-white shadow-md">
               <svg
                 className="h-6 w-6"
                 fill="none"
@@ -280,7 +280,7 @@ export default function AdminDashboard() {
               onClick={() => setActiveTab(tab.id as 'overview' | 'cases')}
               className={`rounded-full px-5 py-2 text-sm font-medium transition ${
                 activeTab === tab.id
-                  ? 'bg-indigo-600 text-white shadow'
+                  ? 'bg-[#E11A27] text-white shadow-md'
                   : 'bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
               }`}
             >
@@ -303,9 +303,9 @@ export default function AdminDashboard() {
                   {stats.total}
                 </p>
               </div>
-              <div className="rounded-full bg-blue-100 p-3 dark:bg-blue-900/30">
+              <div className="rounded-full bg-[#FFE5E7] p-3 dark:bg-[#E11A27]/30">
                 <svg
-                  className="h-6 w-6 text-blue-600 dark:text-blue-400"
+                  className="h-6 w-6 text-[#E11A27] dark:text-[#F02A37]"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -327,13 +327,13 @@ export default function AdminDashboard() {
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
                   Open Cases
                 </p>
-                <p className="mt-2 text-3xl font-bold text-blue-600 dark:text-blue-400">
+                <p className="mt-2 text-3xl font-bold text-[#E11A27] dark:text-[#F02A37]">
                   {stats.open}
                 </p>
               </div>
-              <div className="rounded-full bg-blue-100 p-3 dark:bg-blue-900/30">
+              <div className="rounded-full bg-[#FFE5E7] p-3 dark:bg-[#E11A27]/30">
                 <svg
-                  className="h-6 w-6 text-blue-600 dark:text-blue-400"
+                  className="h-6 w-6 text-[#E11A27] dark:text-[#F02A37]"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -495,7 +495,7 @@ export default function AdminDashboard() {
                   placeholder="Search by case ID, summary, or message..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:border-[#E11A27] focus:outline-none focus:ring-2 focus:ring-[#E11A27]/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 />
               </div>
 
@@ -511,7 +511,7 @@ export default function AdminDashboard() {
                       e.target.value as 'all' | 'open' | 'resolved' | 'escalated'
                     )
                   }
-                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:border-[#E11A27] focus:outline-none focus:ring-2 focus:ring-[#E11A27]/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 >
                   <option value="all">All Status</option>
                   <option value="open">Open</option>
@@ -665,7 +665,7 @@ export default function AdminDashboard() {
                           <a
                             href={`/case/${caseItem.id}`}
                             onClick={(e) => e.stopPropagation()}
-                            className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-blue-700"
+                            className="rounded-lg bg-[#E11A27] px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-[#C41622] shadow-sm"
                           >
                             View Details
                           </a>

@@ -42,7 +42,7 @@ export default function EscalationQR({ caseId, messages }: EscalationQRProps) {
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+    <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-md dark:border-gray-700 dark:bg-gray-800">
       <div className="mb-4 text-center">
         <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
           Case Escalated
@@ -70,7 +70,7 @@ export default function EscalationQR({ caseId, messages }: EscalationQRProps) {
               href={caseUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block text-sm text-blue-600 hover:underline dark:text-blue-400"
+              className="inline-block text-sm text-[#E11A27] hover:underline dark:text-[#F02A37] font-medium"
             >
               View Case Details
             </a>

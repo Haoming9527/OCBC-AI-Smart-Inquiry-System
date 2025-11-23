@@ -14,8 +14,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Create URL that will be encoded in QR code
-    // In production, this would be your actual domain
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    // Try to get base URL from environment variable, request headers, or fallback to localhost
+    let baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+    
+    if (!baseUrl) {
+      const host = request.headers.get('host');
+      const protocol = request.headers.get('x-forwarded-proto') || 
+                      (host?.includes('localhost') ? 'http' : 'https');
+      baseUrl = host ? `${protocol}://${host}` : 'http://localhost:3000';
+    }
+    
     const caseUrl = `${baseUrl}/case/${caseId}`;
 
     // Generate QR code as data URL (PNG image)

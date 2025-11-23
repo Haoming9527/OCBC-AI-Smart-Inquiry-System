@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,6 +9,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Messages array is required' },
         { status: 400 }
+      );
+    }
+
+    // Check for Gemini API key
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'GEMINI_API_KEY environment variable is not set' },
+        { status: 500 }
       );
     }
 
@@ -111,78 +121,69 @@ COMMON QUERIES - DETAILED RESPONSES:
 
 Always provide comprehensive, helpful responses that empower customers to take action. Maintain a warm, professional tone throughout.`;
 
-    // Format messages for Ollama API with system prompt
-    const formattedMessages = [
-      {
-        role: 'system',
-        content: bankingSystemPrompt,
-      },
-      ...messages.map((msg: { sender: string; text: string }) => ({
-        role: msg.sender === 'user' ? 'user' : 'assistant',
-        content: msg.text,
-      })),
-    ];
-
-    // Get Ollama URL from environment or use default
-    const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
-    const model = process.env.OLLAMA_MODEL || 'llama3.2'; // Default to llama3.2 (smaller, faster)
-
-    // Call Ollama API
-    const response = await fetch(`${ollamaUrl}/api/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: formattedMessages,
-        stream: false, // Set to true if you want streaming responses
-        options: {
-          temperature: 0.4,
-        },
-      }),
+    // Initialize Gemini AI
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-2.0-flash',
+      systemInstruction: bankingSystemPrompt,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Ollama API error:', errorText);
+    // Build conversation history for Gemini
+    // Convert messages to Gemini format (excluding the last user message which we'll send separately)
+    // Gemini requires history to start with 'user' role and alternate between 'user' and 'model'
+    const history: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
+    
+    // Process all messages except the last one
+    // Find the first user message to start the history
+    let startIndex = 0;
+    while (startIndex < messages.length - 1 && messages[startIndex].sender !== 'user') {
+      startIndex++; // Skip any leading bot messages
+    }
+    
+    // Build history starting from the first user message
+    for (let i = startIndex; i < messages.length - 1; i++) {
+      const msg = messages[i];
+      const role = msg.sender === 'user' ? 'user' : 'model';
       
-      // If Ollama is not running, provide helpful error message
-      if (response.status === 0 || response.status === 500) {
-        return NextResponse.json(
-          {
-            error: 'Ollama is not running. Please make sure Ollama is installed and running on your machine.',
-            hint: 'Install from https://ollama.com and run: ollama pull llama3.2',
-          },
-          { status: 503 }
-        );
+      // Skip if the last message in history has the same role (merge consecutive messages)
+      if (history.length > 0 && history[history.length - 1].role === role) {
+        // Merge with previous message
+        history[history.length - 1].parts[0].text += '\n' + msg.text;
+        continue;
       }
+      
+      history.push({
+        role,
+        parts: [{ text: msg.text }],
+      });
+    }
 
+    // Get the last user message
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage || lastMessage.sender !== 'user') {
       return NextResponse.json(
-        { error: `Ollama API error: ${errorText}` },
-        { status: response.status }
+        { error: 'Last message must be from user' },
+        { status: 400 }
       );
     }
 
-    // Ollama returns newline-delimited JSON stream even with stream: false
-    // We need to read it as text and parse each line
-    const text = await response.text();
-    const lines = text.trim().split('\n');
+    // Start chat with history (only include if we have valid history starting with user)
+    const chatConfig: any = {
+      generationConfig: {
+        temperature: 0.4,
+      },
+    };
     
-    let fullResponse = '';
-    for (const line of lines) {
-      if (line.trim()) {
-        try {
-          const json = JSON.parse(line);
-          if (json.message?.content) {
-            fullResponse += json.message.content;
-          }
-        } catch (e) {
-          // Skip invalid JSON lines
-          console.warn('Failed to parse line:', line);
-        }
-      }
+    if (history.length > 0 && history[0].role === 'user') {
+      chatConfig.history = history;
     }
+    
+    const chat = model.startChat(chatConfig);
+
+    // Send the last user message to Gemini
+    const result = await chat.sendMessage(lastMessage.text);
+    const response = await result.response;
+    let fullResponse = response.text();
     
     // Post-process Chinese responses to replace common English terms
     if (language === 'zh' && fullResponse) {
@@ -224,19 +225,56 @@ Always provide comprehensive, helpful responses that empower customers to take a
   } catch (error) {
     console.error('Chat API error:', error);
     
-    // Check if it's a connection error
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      return NextResponse.json(
-        {
-          error: 'Cannot connect to Ollama. Please make sure Ollama is running on your machine.',
-          hint: 'Install from https://ollama.com and run: ollama pull llama3.2',
-        },
-        { status: 503 }
-      );
+    // Check for Gemini API specific errors
+    if (error instanceof Error) {
+      // Network/connectivity errors
+      if (error.message.includes('fetch failed') || error.message.includes('ECONNREFUSED') || error.message.includes('ENOTFOUND')) {
+        return NextResponse.json(
+          {
+            error: 'Network error: Unable to connect to Gemini API. Please check your internet connection and try again.',
+            hint: 'If the problem persists, verify your GEMINI_API_KEY is correct in .env',
+          },
+          { status: 503 }
+        );
+      }
+      
+      // API key errors
+      if (error.message.includes('API_KEY') || error.message.includes('API key')) {
+        return NextResponse.json(
+          {
+            error: 'Invalid GEMINI_API_KEY. Please check your API key in .env',
+            hint: 'Get your API key from https://makersuite.google.com/app/apikey',
+          },
+          { status: 401 }
+        );
+      }
+      
+      // Quota/rate limit errors
+      if (error.message.includes('quota') || error.message.includes('rate limit') || error.message.includes('429')) {
+        return NextResponse.json(
+          {
+            error: 'Gemini API quota exceeded or rate limit reached. Please try again later.',
+          },
+          { status: 429 }
+        );
+      }
+      
+      // Permission errors
+      if (error.message.includes('PERMISSION_DENIED') || error.message.includes('403')) {
+        return NextResponse.json(
+          {
+            error: 'Permission denied. Please check your Gemini API key permissions.',
+          },
+          { status: 403 }
+        );
+      }
     }
 
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

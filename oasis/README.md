@@ -1,39 +1,19 @@
 # OCBC AI Smart Inquiry System (OASIS) - Chatbot Interface
 
-This is the OCBC AI Smart Inquiry System (OASIS) chatbot interface built with Next.js and integrated with Ollama for local AI model hosting.
+This is the OCBC AI Smart Inquiry System (OASIS) chatbot interface built with Next.js and integrated with Google Gemini AI.
 
-## 🤖 AI Model Setup (Ollama)
+## 🤖 AI Model Setup (Gemini)
 
-This project uses **Ollama** for free, local AI model hosting. All data stays on your machine!
+This project uses **Google Gemini AI** for intelligent chatbot responses.
 
-### Step 1: Install Ollama
+### Step 1: Get Your Gemini API Key
 
-1. Download Ollama from [https://ollama.com](https://ollama.com)
-2. Install it on your machine
-3. Ollama will run automatically in the background
+1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Sign in with your Google account
+3. Click "Create API Key" to generate a new API key
+4. Copy your API key (you'll need it for the next step)
 
-### Step 2: Download a Model
-
-Open your terminal and run one of these commands:
-
-**Recommended for most users (smaller, faster):**
-```bash
-ollama pull llama3.2
-```
-
-**For better quality (larger, slower):**
-```bash
-ollama pull llama3.1
-```
-
-**Other good options:**
-```bash
-ollama pull mistral      # Fast and efficient
-ollama pull phi3         # Very small, very fast
-ollama pull gemma2       # Google's model
-```
-
-### Step 3: Set Up Neon Database
+### Step 2: Set Up Neon Database
 
 This project uses **Neon DB** (serverless Postgres) for storing cases and messages.
 
@@ -48,15 +28,14 @@ This project uses **Neon DB** (serverless Postgres) for storing cases and messag
    - Copy the connection string (it looks like: `postgresql://username:password@hostname/database?sslmode=require`)
 
 3. **Configure Environment:**
-   Create a `.env.local` file in the `oasis` directory:
+   Create a `.env` file in the `oasis` directory:
 
 ```env
 # Neon Database Connection (REQUIRED)
 DATABASE_URL=postgresql://username:password@hostname/database?sslmode=require
 
-# Ollama Configuration (Optional)
-OLLAMA_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.2
+# Gemini API Key (REQUIRED)
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 The database schema will be automatically created on first run.
@@ -68,11 +47,7 @@ The database schema will be automatically created on first run.
    npm install
    ```
 
-2. **Make sure Ollama is running:**
-   - Ollama should start automatically after installation
-   - You can verify by running: `ollama list` in your terminal
-
-3. **Start the development server:**
+2. **Start the development server:**
    ```bash
    npm run dev
    ```
@@ -82,7 +57,7 @@ The database schema will be automatically created on first run.
 
 ## 📝 Features
 
-- ✅ Local AI model hosting (100% free, no API costs)
+- ✅ Google Gemini AI integration for intelligent responses
 - ✅ Neon DB integration for persistent case storage
 - ✅ Admin dashboard for case management
 - ✅ Modern chat interface
@@ -91,21 +66,23 @@ The database schema will be automatically created on first run.
 
 ## 🔧 Troubleshooting
 
-**Problem: "Cannot connect to Ollama"**
-- Make sure Ollama is installed and running
-- Check if Ollama is running: `ollama list`
-- Restart Ollama if needed
+**Problem: "GEMINI_API_KEY environment variable is not set"**
+- Make sure you've created a `.env` file
+- Add your Gemini API key to the file: `GEMINI_API_KEY=your_api_key_here`
+- Restart your development server after adding the environment variable
+- Get your API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
 
-**Problem: Model not found**
-- Make sure you've pulled the model: `ollama pull llama3.2`
-- Check available models: `ollama list`
+**Problem: "Invalid GEMINI_API_KEY"**
+- Verify your API key is correct in `.env`
+- Make sure there are no extra spaces or quotes around the API key
+- Check that your API key is active in Google AI Studio
 
-**Problem: Slow responses**
-- Try a smaller model like `llama3.2` or `phi3`
-- Make sure you have enough RAM (models need 4-8GB+)
+**Problem: "Gemini API quota exceeded"**
+- Check your API usage in Google AI Studio
+- You may need to wait for quota reset or upgrade your plan
 
 **Problem: "DATABASE_URL environment variable is not set"**
-- Make sure you've created a `.env.local` file
+- Make sure you've created a `.env` file
 - Add your Neon database connection string to the file
 - Restart your development server after adding the environment variable
 
@@ -114,8 +91,92 @@ The database schema will be automatically created on first run.
 - Check that your Neon project is active
 - Ensure SSL mode is set to `require` in the connection string
 
+## 🚀 Deployment to Vercel
+
+This project is ready to deploy to Vercel. Follow these steps:
+
+### Option 1: Deploy via Vercel CLI
+
+1. **Install Vercel CLI:**
+   ```bash
+   npm i -g vercel
+   ```
+
+2. **Login to Vercel:**
+   ```bash
+   vercel login
+   ```
+
+3. **Deploy:**
+   ```bash
+   vercel
+   ```
+
+4. **Set Environment Variables:**
+   After deployment, add your environment variables in the Vercel dashboard:
+   - Go to your project settings
+   - Navigate to "Environment Variables"
+   - Add the following variables:
+     - `DATABASE_URL` - Your Neon database connection string
+     - `GEMINI_API_KEY` - Your Google Gemini API key
+     - `NEXT_PUBLIC_BASE_URL` - Your production URL (e.g., `https://your-app.vercel.app`)
+
+5. **Redeploy:**
+   After adding environment variables, redeploy your application:
+   ```bash
+   vercel --prod
+   ```
+
+### Option 2: Deploy via GitHub Integration
+
+1. **Push your code to GitHub:**
+   ```bash
+   git add .
+   git commit -m "Ready for deployment"
+   git push origin main
+   ```
+
+2. **Import to Vercel:**
+   - Go to [vercel.com](https://vercel.com)
+   - Click "Add New Project"
+   - Import your GitHub repository
+   - Vercel will automatically detect Next.js
+
+3. **Configure Environment Variables:**
+   - In the project settings, go to "Environment Variables"
+   - Add the following:
+     - `DATABASE_URL` - Your Neon database connection string
+     - `GEMINI_API_KEY` - Your Google Gemini API key
+     - `NEXT_PUBLIC_BASE_URL` - Your production URL (will be provided after first deployment)
+
+4. **Deploy:**
+   - Click "Deploy"
+   - Vercel will build and deploy your application
+   - After deployment, update `NEXT_PUBLIC_BASE_URL` with your actual Vercel URL
+
+### Required Environment Variables for Production
+
+Make sure to set these in your Vercel project settings:
+
+```env
+DATABASE_URL=postgresql://username:password@hostname/database?sslmode=require
+GEMINI_API_KEY=your_gemini_api_key_here
+NEXT_PUBLIC_BASE_URL=https://your-app.vercel.app
+```
+
+**Note:** `NEXT_PUBLIC_BASE_URL` is used for generating QR codes. After your first deployment, Vercel will provide you with a URL like `https://your-app.vercel.app`. Update this variable with your actual deployment URL.
+
+### Post-Deployment Checklist
+
+- ✅ Verify all environment variables are set correctly
+- ✅ Test the chat functionality
+- ✅ Test database connections
+- ✅ Verify QR code generation works (if using case escalation)
+- ✅ Check that the admin dashboard is accessible
+
 ## 📚 Learn More
 
-- [Ollama Documentation](https://ollama.com/docs)
+- [Google Gemini API Documentation](https://ai.google.dev/docs)
 - [Next.js Documentation](https://nextjs.org/docs)
-- [Available Ollama Models](https://ollama.com/library)
+- [Vercel Deployment Guide](https://vercel.com/docs)
+- [Google AI Studio](https://makersuite.google.com/app/apikey)
